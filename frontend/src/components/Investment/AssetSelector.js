@@ -12,16 +12,21 @@ import {
   Spinner,
   useColorModeValue,
   Collapse,
-  Badge
+  Badge,
+  Tooltip,
+  HStack,
+  Tag,
+  TagLabel
 } from '@chakra-ui/react';
-import { FiSearch, FiTrendingUp, FiDollarSign } from 'react-icons/fi';
+import { FiSearch, FiTrendingUp, FiDollarSign, FiFilter } from 'react-icons/fi';
 import { useInvestment } from '../../context/InvestmentContext';
 
-const AssetSelector = ({ onSelectAsset, onSearch }) => {
-  const { searchAssets, searchResults, loading } = useInvestment();
+const AssetSelector = ({ onSelectAsset, onSearch, activeFilters = {} }) => {
+  const { searchAssets, searchResults, loading, assetTypes } = useInvestment();
   const [query, setQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [searchPerformed, setSearchPerformed] = useState(false);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   
@@ -32,6 +37,9 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
     { ticker: 'GOOGL', name: 'Alphabet Inc.', type: 'stock', exchange: 'NASDAQ' },
     { ticker: 'AMZN', name: 'Amazon.com Inc.', type: 'stock', exchange: 'NASDAQ' },
     { ticker: 'TSLA', name: 'Tesla Inc.', type: 'stock', exchange: 'NASDAQ' },
+    { ticker: 'SPY', name: 'SPDR S&P 500 ETF Trust', type: 'etf', exchange: 'NYSE' },
+    { ticker: 'QQQ', name: 'Invesco QQQ Trust', type: 'etf', exchange: 'NASDAQ' },
+    { ticker: 'BTC-USD', name: 'Bitcoin USD', type: 'crypto', exchange: 'CRYPTO' }
   ]);
 
   // Colors
@@ -51,11 +59,14 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
   useEffect(() => {
     if (debouncedQuery.length >= 2) {
       try {
-        // Use the provided onSearch callback if available
-        if (onSearch) {
-          onSearch(debouncedQuery);
-        } else if (searchAssets) {
-          searchAssets(debouncedQuery);
+        // Extract filters from activeFilters prop
+        const assetType = activeFilters?.assetType || null;
+        const characteristics = activeFilters?.characteristics || [];
+        
+        if (searchAssets) {
+          // Pass the filters to the searchAssets function
+          searchAssets(debouncedQuery, assetType, characteristics);
+          setSearchPerformed(true);
         }
         setIsSearchOpen(true);
       } catch (err) {
@@ -63,8 +74,9 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
       }
     } else {
       setIsSearchOpen(query.length > 0);
+      setSearchPerformed(false);
     }
-  }, [debouncedQuery, searchAssets, onSearch]);
+  }, [debouncedQuery, searchAssets, activeFilters]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -92,6 +104,7 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
       setIsSearchOpen(true);
     } else {
       setIsSearchOpen(false);
+      setSearchPerformed(false);
     }
   };
 
@@ -102,6 +115,7 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
     }
     setQuery('');
     setIsSearchOpen(false);
+    setSearchPerformed(false);
   };
 
   // Get badge color based on asset type
@@ -120,10 +134,28 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
     }
   };
 
+  // Get asset type display name from ID
+  const getAssetTypeName = (typeId) => {
+    if (!typeId || !assetTypes || assetTypes.length === 0) return typeId;
+    const typeObj = assetTypes.find(t => t.id === typeId);
+    return typeObj ? typeObj.name : typeId;
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = activeFilters && 
+    (activeFilters.assetType || (activeFilters.characteristics && activeFilters.characteristics.length > 0));
+
   // Provide default results if search isn't working or no search performed
-  const displayResults = Array.isArray(searchResults) && searchResults.length > 0 
+  let displayResults = Array.isArray(searchResults) && searchResults.length > 0 && searchPerformed
     ? searchResults 
     : defaultAssets;
+    
+  // Apply assetType filter to default assets if needed (when no search performed)
+  if (!searchPerformed && activeFilters?.assetType) {
+    displayResults = displayResults.filter(asset => 
+      asset.type?.toLowerCase() === activeFilters.assetType.toLowerCase()
+    );
+  }
 
   return (
     <Box position="relative" width="full">
@@ -143,6 +175,26 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
           }}
         />
       </InputGroup>
+
+      {/* Active filters indicator */}
+      {hasActiveFilters && (
+        <Flex align="center" mb={3}>
+          <FiFilter color="gray.500" size="14px" />
+          <Text fontSize="xs" color="gray.500" ml={1} mr={2}>Filters:</Text>
+          <HStack spacing={1}>
+            {activeFilters.assetType && (
+              <Tag size="sm" colorScheme={getAssetTypeColor(activeFilters.assetType)} variant="subtle">
+                <TagLabel>{getAssetTypeName(activeFilters.assetType)}</TagLabel>
+              </Tag>
+            )}
+            {activeFilters.characteristics && activeFilters.characteristics.length > 0 && (
+              <Tag size="sm" colorScheme="green" variant="subtle">
+                <TagLabel>{activeFilters.characteristics.length} traits</TagLabel>
+              </Tag>
+            )}
+          </HStack>
+        </Flex>
+      )}
 
       <Collapse in={isSearchOpen} animateOpacity>
         <Box
@@ -168,7 +220,7 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
             </Flex>
           ) : displayResults.length === 0 ? (
             <Box p={4} textAlign="center">
-              <Text color="gray.500">No results found. Try another search.</Text>
+              <Text color="gray.500">No results found. Try adjusting your search or filters.</Text>
             </Box>
           ) : (
             <List spacing={0}>
@@ -198,9 +250,11 @@ const AssetSelector = ({ onSelectAsset, onSearch }) => {
                       </Flex>
                       <Flex align="center">
                         <Text mr={2} noOfLines={1} maxW="160px" textAlign="right">{result.name}</Text>
-                        <Badge colorScheme={getAssetTypeColor(result.type)}>
-                          {result.type || 'stock'}
-                        </Badge>
+                        <Tooltip label={result.type}>
+                          <Badge colorScheme={getAssetTypeColor(result.type)}>
+                            {result.type}
+                          </Badge>
+                        </Tooltip>
                       </Flex>
                     </Flex>
                   </Button>

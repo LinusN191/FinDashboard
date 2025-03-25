@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Heading,
@@ -92,7 +92,7 @@ const AIInsightsPanel = () => {
   const [error, setError] = useState(null);
   
   // Function to generate and load insights
-  const loadInsights = () => {
+  const loadInsights = useCallback(() => {
     // Set loading state and clear any previous errors
     setLoading(true);
     setError(null);
@@ -168,11 +168,11 @@ const AIInsightsPanel = () => {
       setError('Failed to load AI insights');
       registerError('ai-insights', { 
         message: 'Failed to load AI insights', 
-        details: err.message
+        details: err.message || 'Unknown error'
       });
       setLoading(false);
     }
-  };
+  }, [clearError, registerError]);
   
   // Function to handle refresh
   const handleRefresh = () => {
@@ -186,7 +186,7 @@ const AIInsightsPanel = () => {
     return () => {
       clearError('ai-insights');
     };
-  }, [assetData, performanceMetrics, budgets, expenses, debts, savingsGoals, clearError]);
+  }, [loadInsights, clearError]);
   
   // Handle insight action
   const handleInsightAction = (insightId) => {

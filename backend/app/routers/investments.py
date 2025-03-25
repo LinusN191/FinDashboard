@@ -114,36 +114,158 @@ async def get_asset_data(
 @router.get("/search")
 async def search_assets(
     query: str = Query(..., min_length=1, description="Search query for assets"),
+    asset_type: Optional[str] = Query(None, description="Asset type: stock, etf, bond, crypto"),
+    characteristics: Optional[str] = Query(None, description="Comma-separated characteristics: growth, value, dividend, sovereign, corporate"),
     user_data = Depends(verify_token)
 ):
     """
-    Search for assets (stocks, crypto, bonds) based on a query string
+    Search for assets (stocks, crypto, bonds) based on query string and filters
     """
-    # In a production app, this would use a proper search API
-    # This is a simplified mock implementation
-    # Common tickers for demo purposes
-    common_assets = {
-        "AAPL": "Apple Inc.",
-        "MSFT": "Microsoft Corporation",
-        "GOOGL": "Alphabet Inc.",
-        "AMZN": "Amazon.com, Inc.",
-        "TSLA": "Tesla, Inc.",
-        "BTC-USD": "Bitcoin USD",
-        "ETH-USD": "Ethereum USD",
-        "SPY": "SPDR S&P 500 ETF Trust",
-        "QQQ": "Invesco QQQ Trust",
-        "VFINX": "Vanguard 500 Index Fund"
+    try:
+        # Parse characteristics into a list if provided
+        characteristics_list = []
+        if characteristics:
+            characteristics_list = [c.strip().lower() for c in characteristics.split(',')]
+        
+        # In a real app, we would search through a database
+        # Using YFinance for a more comprehensive search
+        results = []
+        
+        # Basic asset types to include more real-world options
+        asset_data = {
+            "stock": [
+                {"ticker": "AAPL", "name": "Apple Inc.", "type": "stock", "exchange": "NASDAQ", "characteristics": ["growth", "technology", "large-cap", "dividend"]},
+                {"ticker": "MSFT", "name": "Microsoft Corporation", "type": "stock", "exchange": "NASDAQ", "characteristics": ["growth", "technology", "large-cap", "dividend"]},
+                {"ticker": "GOOGL", "name": "Alphabet Inc.", "type": "stock", "exchange": "NASDAQ", "characteristics": ["growth", "technology", "large-cap"]},
+                {"ticker": "AMZN", "name": "Amazon.com, Inc.", "type": "stock", "exchange": "NASDAQ", "characteristics": ["growth", "technology", "large-cap"]},
+                {"ticker": "TSLA", "name": "Tesla, Inc.", "type": "stock", "exchange": "NASDAQ", "characteristics": ["growth", "automotive", "large-cap"]},
+                {"ticker": "JNJ", "name": "Johnson & Johnson", "type": "stock", "exchange": "NYSE", "characteristics": ["value", "healthcare", "large-cap", "dividend"]},
+                {"ticker": "JPM", "name": "JPMorgan Chase & Co.", "type": "stock", "exchange": "NYSE", "characteristics": ["value", "financial", "large-cap", "dividend"]},
+                {"ticker": "PG", "name": "Procter & Gamble Co.", "type": "stock", "exchange": "NYSE", "characteristics": ["value", "consumer", "large-cap", "dividend"]}
+            ],
+            "etf": [
+                {"ticker": "SPY", "name": "SPDR S&P 500 ETF Trust", "type": "etf", "exchange": "NYSE", "characteristics": ["index", "large-cap", "dividend"]},
+                {"ticker": "QQQ", "name": "Invesco QQQ Trust", "type": "etf", "exchange": "NASDAQ", "characteristics": ["index", "technology", "large-cap"]},
+                {"ticker": "VTI", "name": "Vanguard Total Stock Market ETF", "type": "etf", "exchange": "NYSE", "characteristics": ["index", "total-market", "dividend"]},
+                {"ticker": "SCHD", "name": "Schwab US Dividend Equity ETF", "type": "etf", "exchange": "NYSE", "characteristics": ["dividend", "equity", "value"]},
+                {"ticker": "VGT", "name": "Vanguard Information Technology ETF", "type": "etf", "exchange": "NYSE", "characteristics": ["technology", "sector", "growth"]}
+            ],
+            "bond": [
+                {"ticker": "BND", "name": "Vanguard Total Bond Market ETF", "type": "bond", "exchange": "NASDAQ", "characteristics": ["fixed-income", "total-market"]},
+                {"ticker": "AGG", "name": "iShares Core U.S. Aggregate Bond ETF", "type": "bond", "exchange": "NYSE", "characteristics": ["fixed-income", "total-market"]},
+                {"ticker": "LQD", "name": "iShares iBoxx $ Investment Grade Corporate Bond ETF", "type": "bond", "exchange": "NYSE", "characteristics": ["fixed-income", "corporate"]},
+                {"ticker": "MUB", "name": "iShares National Muni Bond ETF", "type": "bond", "exchange": "NYSE", "characteristics": ["fixed-income", "municipal", "tax-exempt"]},
+                {"ticker": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "type": "bond", "exchange": "NASDAQ", "characteristics": ["fixed-income", "sovereign", "government", "long-term"]}
+            ],
+            "crypto": [
+                {"ticker": "BTC-USD", "name": "Bitcoin USD", "type": "crypto", "exchange": "CRYPTO", "characteristics": ["digital-asset", "large-cap"]},
+                {"ticker": "ETH-USD", "name": "Ethereum USD", "type": "crypto", "exchange": "CRYPTO", "characteristics": ["digital-asset", "large-cap", "smart-contract"]},
+                {"ticker": "SOL-USD", "name": "Solana USD", "type": "crypto", "exchange": "CRYPTO", "characteristics": ["digital-asset", "smart-contract"]},
+                {"ticker": "ADA-USD", "name": "Cardano USD", "type": "crypto", "exchange": "CRYPTO", "characteristics": ["digital-asset", "smart-contract"]}
+            ]
+        }
+        
+        # Filter by asset type if specified
+        filtered_assets = []
+        if asset_type:
+            asset_type = asset_type.lower()
+            if asset_type in asset_data:
+                filtered_assets.extend(asset_data[asset_type])
+        else:
+            # If no asset type filter, include all types
+            for assets in asset_data.values():
+                filtered_assets.extend(assets)
+        
+        # Filter by query (case-insensitive)
+        query = query.lower()
+        query_filtered = [
+            asset for asset in filtered_assets
+            if query in asset["ticker"].lower() or query in asset["name"].lower()
+        ]
+        
+        # Further filter by characteristics if specified
+        if characteristics_list:
+            results = [
+                asset for asset in query_filtered
+                if any(char in asset.get("characteristics", []) for char in characteristics_list)
+            ]
+        else:
+            results = query_filtered
+        
+        # Try to get additional data from YFinance if results are too few
+        if not results and query and len(query) >= 2:
+            try:
+                # Use yfinance to search
+                ticker_matches = []
+                for possible_ticker in [query.upper(), f"{query.upper()}-USD"]:
+                    try:
+                        ticker_info = yf.Ticker(possible_ticker)
+                        if hasattr(ticker_info, 'info') and ticker_info.info.get('regularMarketPrice'):
+                            # It's a valid ticker
+                            info = ticker_info.info
+                            asset_type_guess = "crypto" if "-USD" in possible_ticker else "stock"
+                            if info.get('quoteType') == 'ETF':
+                                asset_type_guess = "etf"
+                            
+                            characteristics = []
+                            if info.get('dividendRate'):
+                                characteristics.append("dividend")
+                            if asset_type_guess == "etf":
+                                characteristics.append("index")
+                            
+                            ticker_matches.append({
+                                "ticker": possible_ticker,
+                                "name": info.get('longName', info.get('shortName', possible_ticker)),
+                                "type": asset_type_guess,
+                                "exchange": info.get('exchange', 'UNKNOWN'),
+                                "characteristics": characteristics
+                            })
+                    except:
+                        pass
+                
+                # Add any found tickers to results
+                results.extend(ticker_matches)
+            except Exception as e:
+                # If YFinance search fails, continue with existing results
+                print(f"YFinance search error: {str(e)}")
+                pass
+        
+        # Limit results
+        return {"results": results[:10]}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching assets: {str(e)}")
+
+@router.get("/asset-types")
+async def get_asset_types(
+    user_data = Depends(verify_token)
+):
+    """
+    Get available asset types and their characteristics for filtering
+    """
+    return {
+        "types": [
+            {"id": "stock", "name": "Stocks", "description": "Individual company shares"},
+            {"id": "etf", "name": "ETFs", "description": "Exchange Traded Funds"},
+            {"id": "bond", "name": "Bonds", "description": "Fixed income securities"},
+            {"id": "crypto", "name": "Cryptocurrencies", "description": "Digital assets"}
+        ],
+        "characteristics": [
+            {"id": "growth", "name": "Growth", "description": "Companies expected to grow at an above-average rate"},
+            {"id": "value", "name": "Value", "description": "Companies trading at a lower price relative to fundamentals"},
+            {"id": "dividend", "name": "Dividend", "description": "Assets that provide regular income"},
+            {"id": "index", "name": "Index", "description": "Tracks a market index like S&P 500"},
+            {"id": "sector", "name": "Sector", "description": "Focused on a specific sector (e.g., Technology)"},
+            {"id": "large-cap", "name": "Large-Cap", "description": "Large market capitalization"},
+            {"id": "mid-cap", "name": "Mid-Cap", "description": "Medium market capitalization"},
+            {"id": "small-cap", "name": "Small-Cap", "description": "Small market capitalization"},
+            {"id": "corporate", "name": "Corporate", "description": "Corporate debt instruments"},
+            {"id": "sovereign", "name": "Sovereign", "description": "Government debt instruments"},
+            {"id": "municipal", "name": "Municipal", "description": "Municipal debt instruments"},
+            {"id": "total-market", "name": "Total Market", "description": "Covers the entire market"},
+            {"id": "smart-contract", "name": "Smart Contract", "description": "Platforms with smart contract functionality"}
+        ]
     }
-    
-    # Filter based on query (case-insensitive)
-    query = query.lower()
-    results = [
-        {"ticker": ticker, "name": name}
-        for ticker, name in common_assets.items()
-        if query in ticker.lower() or query in name.lower()
-    ]
-    
-    return {"results": results}
 
 @router.get("/compare")
 async def compare_assets(

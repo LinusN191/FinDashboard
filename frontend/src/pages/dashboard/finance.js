@@ -23,6 +23,7 @@ import DebtTracker from '../../components/Finance/DebtTracker';
 import ExpenseTracker from '../../components/Finance/ExpenseTracker';
 import IncomeManager from '../../components/Finance/IncomeManager';
 import SavingsGoalTracker from '../../components/Finance/SavingsGoalTracker';
+import BudgetSummary from '../../components/Finance/BudgetSummary';
 import { useFinance } from '../../context/FinanceContext';
 
 // Summary Card component
@@ -133,6 +134,7 @@ const Finance = () => {
         {/* Main Finance Components */}
         <Tabs colorScheme="primary" isLazy>
           <TabList>
+            <Tab>Budget Summary</Tab>
             <Tab>Income</Tab>
             <Tab>Budget</Tab>
             <Tab>Expenses</Tab>
@@ -141,6 +143,17 @@ const Finance = () => {
           </TabList>
           
           <TabPanels>
+            <TabPanel>
+              <Box 
+                p={5} 
+                borderWidth="1px" 
+                borderRadius="lg" 
+                bg={useColorModeValue('white', 'gray.700')}
+              >
+                <BudgetSummary />
+              </Box>
+            </TabPanel>
+            
             <TabPanel>
               <Box 
                 p={5} 

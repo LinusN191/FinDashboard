@@ -21,12 +21,14 @@ import {
   StatNumber,
   StatHelpText,
   StatArrow,
-  StatGroup
+  StatGroup,
+  useToast
 } from '@chakra-ui/react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import AssetSelector from '../../components/Investment/AssetSelector';
 import MetricsDashboard from '../../components/Investment/MetricsDashboard';
 import InvestmentManager from '../../components/Investment/InvestmentManager';
+import InvestmentFilters from '../../components/InvestmentFilters';
 import { useInvestment } from '../../context/InvestmentContext';
 
 const SimplePriceSummary = ({ ticker }) => {
@@ -117,7 +119,8 @@ const Investments = () => {
   const { 
     currentAsset = null, 
     setCurrentAsset = () => {}, 
-    compareAssets = () => {}, 
+    compareAssets = () => {},
+    searchAssets = () => {},
     assetComparisons = null,
     loading = false, 
     error = '' 
@@ -128,11 +131,34 @@ const Investments = () => {
   const [comparisonTicker, setComparisonTicker] = useState('');
   const [localLoading, setLocalLoading] = useState(true);
   const [localError, setLocalError] = useState('');
+  const [activeFilters, setActiveFilters] = useState({
+    assetType: '',
+    characteristics: []
+  });
   const [localAssetComparisons, setLocalAssetComparisons] = useState({
     return_difference: 5.32,
     correlation: 0.78,
     better_risk_adjusted_return: true
   });
+  
+  const toast = useToast();
+  
+  // Handle filter changes from the InvestmentFilters component
+  const handleFilterChange = (filters) => {
+    setActiveFilters(filters);
+    // Auto-refresh search results if there's a current search query
+    if (selectedTicker) {
+      // We could trigger a search here with the new filters
+      // For now, just show a toast to inform the user
+      toast({
+        title: "Filters Applied",
+        description: `Filtering assets by ${filters.assetType ? filters.assetType : 'all types'} with ${filters.characteristics.length} characteristics`,
+        status: "info",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
   
   const handleAssetSelect = (ticker, name) => {
     if (!ticker) return;
@@ -157,7 +183,8 @@ const Investments = () => {
     
     if (typeof compareAssets === 'function') {
       try {
-        compareAssets(selectedTicker, ticker);
+        // Update to use the array-based compareAssets function
+        compareAssets([selectedTicker, ticker], '1y');
       } catch (err) {
         console.error("Error comparing assets:", err);
         setLocalError("Failed to compare assets.");
@@ -211,194 +238,125 @@ const Investments = () => {
   
   return (
     <DashboardLayout>
-      <Box p={4}>
-        <Flex justifyContent="space-between" alignItems="center" mb={6}>
-          <Box>
-            <Heading size="lg" mb={1}>Investment Analytics</Heading>
-            <Text color="gray.500">Analyze and compare financial assets</Text>
-          </Box>
-        </Flex>
+      <Box maxW="7xl" mx="auto" px={{ base: '4', md: '8', lg: '12' }} py={{ base: '6', md: '8', lg: '12' }}>
+        <Heading mb={6}>Investment Analytics</Heading>
         
-        <Box 
-          mb={6} 
-          p={4} 
-          borderWidth="1px" 
-          borderRadius="lg" 
-          borderColor={borderColor}
-          bg={cardBg}
-        >
-          <Heading size="md" mb={3}>Search Assets</Heading>
-          <AssetSelector onAssetSelect={handleAssetSelect} />
-        </Box>
+        {/* Add the InvestmentFilters component here */}
+        <InvestmentFilters 
+          onFilterChange={handleFilterChange}
+          initialFilters={activeFilters}
+        />
         
-        {displayError && (
-          <Alert status="error" mb={4} borderRadius="md">
-            <AlertIcon />
-            {displayError}
-          </Alert>
-        )}
-        
-        {isLoading && (
-          <Flex justify="center" my={8}>
-            <Spinner size="xl" color="primary.500" />
-          </Flex>
-        )}
-        
-        {selectedTicker && !isLoading && (
-          <Box mb={8}>
-            <Heading size="md" mb={4}>
-              {selectedAssetName} ({selectedTicker})
-            </Heading>
-            
-            <Tabs colorScheme="primary" isLazy>
-              <TabList>
-                <Tab>Price Summary</Tab>
-                <Tab>Key Metrics</Tab>
-                <Tab>Comparisons</Tab>
-                <Tab>Analysis</Tab>
-                <Tab>Portfolio</Tab>
-              </TabList>
-              
-              <TabPanels>
-                <TabPanel>
+        <Tabs variant="enclosed" colorScheme="blue" mt={6}>
+          <TabList>
+            <Tab>Overview</Tab>
+            <Tab>Portfolio</Tab>
+            <Tab>Add Investment</Tab>
+          </TabList>
+          
+          <TabPanels>
+            <TabPanel>
+              <Grid templateColumns={{ base: '1fr', lg: 'repeat(3, 1fr)' }} gap={6}>
+                <GridItem colSpan={{ base: 1, lg: 1 }}>
                   <Box 
-                    p={4} 
-                    borderWidth="1px" 
-                    borderRadius="lg" 
-                    borderColor={borderColor}
-                    bg={cardBg}
+                    bg={useColorModeValue('white', 'gray.700')} 
+                    borderRadius="lg"
+                    boxShadow="sm"
+                    mb={6}
                   >
-                    <SimplePriceSummary ticker={selectedTicker} />
+                    <AssetSelector 
+                      onAssetSelect={handleAssetSelect}
+                      onCompareSelect={handleComparisonSelect}
+                      activeFilters={activeFilters} // Pass filters to AssetSelector
+                    />
                   </Box>
-                </TabPanel>
-                
-                <TabPanel>
+                  
                   <Box 
-                    p={4} 
-                    borderWidth="1px" 
-                    borderRadius="lg" 
-                    borderColor={borderColor}
-                    bg={cardBg}
+                    bg={useColorModeValue('white', 'gray.700')} 
+                    borderRadius="lg"
+                    boxShadow="sm"
+                    mb={6}
                   >
-                    <MetricsDashboard ticker={selectedTicker} />
+                    <Heading size="md" p={4} borderBottomWidth="1px">Selected Asset</Heading>
+                    <Box p={4}>
+                      {selectedTicker ? (
+                        <Text fontWeight="bold" fontSize="xl">{selectedAssetName} ({selectedTicker})</Text>
+                      ) : (
+                        <Text color="gray.500">No asset selected</Text>
+                      )}
+                    </Box>
                   </Box>
-                </TabPanel>
+                </GridItem>
                 
-                <TabPanel>
-                  <Box 
-                    p={4} 
-                    borderWidth="1px" 
-                    borderRadius="lg" 
-                    borderColor={borderColor}
-                    bg={cardBg}
-                  >
-                    <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6}>
-                      <GridItem>
-                        <Heading size="sm" mb={3}>Compare With</Heading>
-                        <AssetSelector onAssetSelect={(ticker) => handleComparisonSelect(ticker)} />
-                        
-                        {comparisonTicker && (
-                          <Text mt={4} fontWeight="medium">
-                            Comparing {selectedTicker} with {comparisonTicker}
-                          </Text>
-                        )}
-                      </GridItem>
+                <GridItem colSpan={{ base: 1, lg: 2 }}>
+                  {localLoading ? (
+                    <Flex justify="center" align="center" height="300px">
+                      <Spinner size="xl" color="primary.500" />
+                    </Flex>
+                  ) : selectedTicker ? (
+                    <>
+                      <SimplePriceSummary ticker={selectedTicker} />
                       
-                      <GridItem>
-                        {displayComparisons && comparisonTicker ? (
-                          <Box>
-                            <Heading size="sm" mb={3}>Comparison Results</Heading>
-                            <Text>
-                              Return Difference: {displayComparisons.return_difference > 0 ? '+' : ''}
-                              {typeof displayComparisons.return_difference === 'number' 
-                                ? displayComparisons.return_difference.toFixed(2) 
-                                : '0.00'}%
-                            </Text>
-                            <Text>
-                              Correlation: {typeof displayComparisons.correlation === 'number' 
-                                ? displayComparisons.correlation.toFixed(2) 
-                                : '0.00'}
-                            </Text>
-                            <Text>
-                              Risk-Adjusted Return: {selectedTicker} is {displayComparisons.better_risk_adjusted_return ? 'better' : 'worse'} than {comparisonTicker}
-                            </Text>
-                          </Box>
-                        ) : (
-                          <Text>Select an asset to compare</Text>
-                        )}
-                      </GridItem>
-                    </Grid>
-                  </Box>
-                </TabPanel>
-                
-                <TabPanel>
-                  <Box 
-                    p={4} 
-                    borderWidth="1px" 
-                    borderRadius="lg" 
-                    borderColor={borderColor}
-                    bg={cardBg}
-                  >
-                    <Heading size="sm" mb={4}>Investment Analysis</Heading>
-                    <Text mb={3}>
-                      This analysis provides insights into the performance and potential of {selectedAssetName} ({selectedTicker}).
-                    </Text>
-                    
-                    <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap={6} mt={6}>
-                      <GridItem>
-                        <Box p={4} borderWidth="1px" borderRadius="md" borderColor={borderColor}>
-                          <Heading size="xs" mb={2}>Risk Assessment</Heading>
-                          <Text>Medium-Low</Text>
-                        </Box>
-                      </GridItem>
-                      <GridItem>
-                        <Box p={4} borderWidth="1px" borderRadius="md" borderColor={borderColor}>
-                          <Heading size="xs" mb={2}>Growth Potential</Heading>
-                          <Text>High</Text>
-                        </Box>
-                      </GridItem>
-                      <GridItem>
-                        <Box p={4} borderWidth="1px" borderRadius="md" borderColor={borderColor}>
-                          <Heading size="xs" mb={2}>Recommendation</Heading>
-                          <Text>Buy</Text>
-                        </Box>
-                      </GridItem>
-                    </Grid>
-                  </Box>
-                </TabPanel>
-                
-                <TabPanel>
-                  <Box 
-                    p={4} 
-                    borderWidth="1px" 
-                    borderRadius="lg" 
-                    borderColor={borderColor}
-                    bg={cardBg}
-                  >
-                    <InvestmentManager />
-                  </Box>
-                </TabPanel>
-              </TabPanels>
-            </Tabs>
-          </Box>
-        )}
-        
-        <Box 
-          p={4} 
-          borderWidth="1px" 
-          borderRadius="lg" 
-          borderColor={borderColor}
-          bg={cardBg}
-        >
-          <Heading size="md" mb={3}>Portfolio Overview</Heading>
-          <Text color="gray.500">
-            Your investment portfolio will be displayed here. Add investments to see your portfolio 
-            performance, allocation, and analysis.
-          </Text>
-          <Button colorScheme="primary" size="sm" mt={3}>
-            Add Investments
-          </Button>
-        </Box>
+                      <Box
+                        mt={6}
+                        bg={useColorModeValue('white', 'gray.700')}
+                        borderRadius="lg"
+                        boxShadow="sm"
+                      >
+                        <Heading size="md" p={4} borderBottomWidth="1px">Asset Metrics</Heading>
+                        <MetricsDashboard />
+                      </Box>
+                    </>
+                  ) : (
+                    <Box
+                      p={8}
+                      bg={useColorModeValue('white', 'gray.700')}
+                      borderRadius="lg"
+                      boxShadow="sm"
+                      textAlign="center"
+                    >
+                      <Heading size="md" mb={4}>Select an Asset</Heading>
+                      <Text>Use the asset selector to choose a stock, ETF, or cryptocurrency to analyze.</Text>
+                    </Box>
+                  )}
+                </GridItem>
+              </Grid>
+            </TabPanel>
+            
+            <TabPanel>
+              <Box
+                bg={useColorModeValue('white', 'gray.700')}
+                borderRadius="lg"
+                boxShadow="sm"
+                p={6}
+              >
+                <Heading size="md" mb={4}>Portfolio Performance</Heading>
+                <Text>Portfolio metrics and visualization will be displayed here.</Text>
+              </Box>
+            </TabPanel>
+            
+            <TabPanel>
+              <Box
+                bg={useColorModeValue('white', 'gray.700')}
+                borderRadius="lg"
+                boxShadow="sm"
+                p={6}
+              >
+                <InvestmentManager 
+                  onInvestmentAdded={() => {
+                    toast({
+                      title: "Investment Added",
+                      description: "Your investment has been successfully added to your portfolio.",
+                      status: "success",
+                      duration: 3000,
+                      isClosable: true,
+                    });
+                  }}
+                />
+              </Box>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </Box>
     </DashboardLayout>
   );

@@ -115,6 +115,8 @@ export const InvestmentProvider = ({ children }) => {
   const [comparisonData, setComparisonData] = useState(null);
   const [assetComparisons, setAssetComparisons] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
+  const [assetTypes, setAssetTypes] = useState([]);
+  const [assetCharacteristics, setAssetCharacteristics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isDevelopment, setIsDevelopment] = useState(process.env.NODE_ENV === 'development');
@@ -123,6 +125,8 @@ export const InvestmentProvider = ({ children }) => {
     // Initialize with demo data in development mode
     if (isDevelopment) {
       setPerformanceMetrics(generateMockMetrics());
+      // Fetch asset types and characteristics
+      fetchAssetFilters();
     }
   }, [isDevelopment]);
 
@@ -141,6 +145,58 @@ export const InvestmentProvider = ({ children }) => {
       }
     }
     return {};
+  };
+
+  // Fetch asset types and characteristics for filtering
+  const fetchAssetFilters = async () => {
+    try {
+      setLoading(true);
+      
+      // For development or if user is not authenticated, use mock data
+      if (isDevelopment || !currentUser) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Mock asset types and characteristics
+        const mockTypes = [
+          {id: "stock", name: "Stocks", description: "Individual company shares"},
+          {id: "etf", name: "ETFs", description: "Exchange Traded Funds"},
+          {id: "bond", name: "Bonds", description: "Fixed income securities"},
+          {id: "crypto", name: "Cryptocurrencies", description: "Digital assets"}
+        ];
+        
+        const mockCharacteristics = [
+          {id: "growth", name: "Growth", description: "Companies expected to grow at an above-average rate"},
+          {id: "value", name: "Value", description: "Companies trading at a lower price relative to fundamentals"},
+          {id: "dividend", name: "Dividend", description: "Assets that provide regular income"},
+          {id: "index", name: "Index", description: "Tracks a market index like S&P 500"},
+          {id: "sector", name: "Sector", description: "Focused on a specific sector (e.g., Technology)"},
+          {id: "large-cap", name: "Large-Cap", description: "Large market capitalization"},
+          {id: "corporate", name: "Corporate", description: "Corporate debt instruments"},
+          {id: "sovereign", name: "Sovereign", description: "Government debt instruments"}
+        ];
+        
+        setAssetTypes(mockTypes);
+        setAssetCharacteristics(mockCharacteristics);
+      } else {
+        // For production with authenticated user
+        const authHeader = await getAuthHeader();
+        const response = await axios.get('/api/investments/asset-types', authHeader);
+        
+        setAssetTypes(response.data.types || []);
+        setAssetCharacteristics(response.data.characteristics || []);
+      }
+    } catch (err) {
+      console.error('Error fetching asset filters:', err);
+      // Use fallback data even in production
+      const fallbackTypes = [
+        {id: "stock", name: "Stocks", description: "Individual company shares"},
+        {id: "etf", name: "ETFs", description: "Exchange Traded Funds"}
+      ];
+      setAssetTypes(fallbackTypes);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Fetch asset data
@@ -194,50 +250,75 @@ export const InvestmentProvider = ({ children }) => {
     }
   };
 
-  // Search for assets (stocks, crypto, bonds)
-  const searchAssets = async (query) => {
+  // Search for assets (stocks, crypto, bonds) with filtering
+  const searchAssets = async (query, assetType = null, characteristics = []) => {
     try {
       setLoading(true);
       setError('');
       
       // For development or if user is not authenticated, use mock data
       if (isDevelopment || !currentUser) {
-        const results = generateMockSearchResults(query);
-        setSearchResults(results);
+        // Generate filtered mock results
+        let mockResults = generateMockSearchResults(query);
+        
+        // Apply asset type filter if provided
+        if (assetType) {
+          mockResults = mockResults.filter(asset => asset.type === assetType);
+        }
+        
+        // Apply characteristics filter if provided
+        if (characteristics && characteristics.length > 0) {
+          // In mock data we don't have characteristics, so we'll just return limited results
+          mockResults = mockResults.slice(0, 3);
+        }
         
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 300));
         
+        setSearchResults(mockResults);
         setLoading(false);
-        return results;
+        return mockResults;
       }
       
       // For production with authenticated user
       const authHeader = await getAuthHeader();
+      const params = { query };
+      
+      // Add filters if provided
+      if (assetType) {
+        params.asset_type = assetType;
+      }
+      
+      if (characteristics && characteristics.length > 0) {
+        params.characteristics = characteristics.join(',');
+      }
+      
       const response = await axios.get('/api/investments/search', {
         ...authHeader,
-        params: { query }
+        params
       });
       
       setSearchResults(response.data.results);
       return response.data.results;
     } catch (err) {
       console.error('Error searching assets:', err);
-      setError('Failed to search assets');
+      setError(`Failed to search assets: ${err.message}`);
       
-      // Fallback to mock results
-      const mockResults = generateMockSearchResults(query);
-      setSearchResults(mockResults);
+      // Fallback to mock data even in production if the API fails
+      const fallbackResults = generateMockSearchResults(query);
+      setSearchResults(fallbackResults);
       
-      return mockResults;
+      return fallbackResults;
     } finally {
       setLoading(false);
     }
   };
 
-  // Compare multiple assets
-  const compareAssets = async (baseTicket, compareTicket, period = '1y') => {
-    if (!baseTicket || !compareTicket) return null;
+  // Compare assets
+  const compareAssets = async (tickers, period = '1y') => {
+    if (!tickers || tickers.length === 0) return null;
+    
+    const tickersString = Array.isArray(tickers) ? tickers.join(',') : tickers;
     
     try {
       setLoading(true);
@@ -245,123 +326,186 @@ export const InvestmentProvider = ({ children }) => {
       
       // For development or if user is not authenticated, use mock data
       if (isDevelopment || !currentUser) {
-        // Create mock comparison data
-        const mockComparison = {
-          return_difference: (Math.random() * 20) - 10,
-          correlation: Math.random() * 0.8 + 0.2,
-          better_risk_adjusted_return: Math.random() > 0.5
-        };
+        const mockComparisons = {};
+        const tickerArray = tickersString.split(',');
         
-        setAssetComparisons(mockComparison);
-        
-        // Also generate price data for both assets
-        const mockComparisonData = {
-          [baseTicket]: generateMockPriceData(baseTicket, 90),
-          [compareTicket]: generateMockPriceData(compareTicket, 90)
-        };
-        
-        setComparisonData(mockComparisonData);
+        tickerArray.forEach(ticker => {
+          mockComparisons[ticker] = {
+            price_data: generateMockPriceData(ticker, 90),
+            metrics: generateMockMetrics(ticker)
+          };
+        });
         
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 700));
         
+        setAssetComparisons(mockComparisons);
         setLoading(false);
-        return { comparisonMetrics: mockComparison, priceData: mockComparisonData };
+        return mockComparisons;
       }
       
       // For production with authenticated user
       const authHeader = await getAuthHeader();
       const response = await axios.get('/api/investments/compare', {
         ...authHeader,
-        params: { 
-          base_ticker: baseTicket,
-          compare_ticker: compareTicket,
-          period 
-        }
+        params: { tickers: tickersString, period }
       });
       
-      setAssetComparisons(response.data.comparison_metrics);
-      setComparisonData(response.data.price_data);
-      return response.data;
+      setAssetComparisons(response.data.comparisons);
+      return response.data.comparisons;
     } catch (err) {
       console.error('Error comparing assets:', err);
-      setError('Failed to compare assets');
+      setError(`Failed to compare assets: ${err.message}`);
       
-      // Fallback to mock data
-      const mockComparison = {
-        return_difference: (Math.random() * 20) - 10,
-        correlation: Math.random() * 0.8 + 0.2,
-        better_risk_adjusted_return: Math.random() > 0.5
-      };
-      
-      setAssetComparisons(mockComparison);
-      
-      const mockComparisonData = {
-        [baseTicket]: generateMockPriceData(baseTicket, 90),
-        [compareTicket]: generateMockPriceData(compareTicket, 90)
-      };
-      
-      setComparisonData(mockComparisonData);
-      return { comparisonMetrics: mockComparison, priceData: mockComparisonData };
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // Get portfolio summary and performance metrics
-  const getPortfolioMetrics = async () => {
+  // Add a user investment
+  const addInvestment = async (investmentData) => {
     try {
       setLoading(true);
       setError('');
       
-      // For development or if user is not authenticated, use mock data
+      // For development or if user is not authenticated, simulate success
       if (isDevelopment || !currentUser) {
-        const mockMetrics = generateMockMetrics();
-        setPerformanceMetrics(mockMetrics);
-        
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        // Update performance metrics to reflect new investment
+        const currentMetrics = { ...performanceMetrics } || generateMockMetrics();
+        
+        // Calculate investment value
+        const investmentValue = investmentData.shares * investmentData.price;
+        
+        // Update portfolio value
+        currentMetrics.portfolio_value = 
+          (currentMetrics.portfolio_value || 0) + investmentValue;
+        
+        setPerformanceMetrics(currentMetrics);
+        
         setLoading(false);
-        return mockMetrics;
+        return { success: true, message: 'Investment added successfully' };
       }
       
       // For production with authenticated user
       const authHeader = await getAuthHeader();
-      const response = await axios.get('/api/investments/portfolio/metrics', authHeader);
+      const response = await axios.post('/api/investments', investmentData, authHeader);
       
-      setPerformanceMetrics(response.data);
+      // Refresh performance metrics after adding investment
+      await fetchPortfolioPerformance();
+      
       return response.data;
     } catch (err) {
-      console.error('Error fetching portfolio metrics:', err);
-      setError('Failed to fetch portfolio metrics');
+      console.error('Error adding investment:', err);
+      setError(`Failed to add investment: ${err.message}`);
       
-      // Fallback to mock metrics
-      const mockMetrics = generateMockMetrics();
-      setPerformanceMetrics(mockMetrics);
-      
-      return mockMetrics;
+      return { success: false, message: `Failed to add investment: ${err.message}` };
     } finally {
       setLoading(false);
     }
   };
 
-  // Context value
+  // Remove a user investment
+  const removeInvestment = async (investmentId) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // For development or if user is not authenticated, simulate success
+      if (isDevelopment || !currentUser) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Update performance metrics to reflect removed investment
+        const currentMetrics = { ...performanceMetrics } || generateMockMetrics();
+        
+        // Simulate reduction in portfolio value
+        // In real app, we'd know the exact value of the investment being removed
+        currentMetrics.portfolio_value = 
+          Math.max(0, (currentMetrics.portfolio_value || 0) - 5000); // Assume $5000 for demo
+        
+        setPerformanceMetrics(currentMetrics);
+        
+        setLoading(false);
+        return { success: true, message: 'Investment removed successfully' };
+      }
+      
+      // For production with authenticated user
+      const authHeader = await getAuthHeader();
+      const response = await axios.delete(`/api/investments/${investmentId}`, authHeader);
+      
+      // Refresh performance metrics after removing investment
+      await fetchPortfolioPerformance();
+      
+      return response.data;
+    } catch (err) {
+      console.error('Error removing investment:', err);
+      setError(`Failed to remove investment: ${err.message}`);
+      
+      return { success: false, message: `Failed to remove investment: ${err.message}` };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch portfolio performance data
+  const fetchPortfolioPerformance = async () => {
+    try {
+      setLoading(true);
+      
+      // For development or if user is not authenticated, use mock data
+      if (isDevelopment || !currentUser) {
+        const mockPerformance = generateMockMetrics();
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        setPerformanceMetrics(mockPerformance);
+        setLoading(false);
+        return mockPerformance;
+      }
+      
+      // For production with authenticated user
+      const authHeader = await getAuthHeader();
+      const response = await axios.get('/api/investments/portfolio', authHeader);
+      
+      setPerformanceMetrics(response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching portfolio performance:', err);
+      
+      // Use mock data as fallback
+      const fallbackPerformance = generateMockMetrics();
+      setPerformanceMetrics(fallbackPerformance);
+      
+      return fallbackPerformance;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Value to share with provider consumers
   const value = {
     currentAsset,
-    setCurrentAsset,
     assetData,
     assetMetrics,
     performanceMetrics,
-    comparisonData,
     assetComparisons,
     searchResults,
+    assetTypes,
+    assetCharacteristics,
     loading,
     error,
     fetchAssetData,
     searchAssets,
     compareAssets,
-    getPortfolioMetrics
+    addInvestment,
+    removeInvestment,
+    fetchPortfolioPerformance,
+    fetchAssetFilters
   };
 
   return (

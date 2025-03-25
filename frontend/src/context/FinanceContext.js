@@ -293,6 +293,99 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
+  // Add transaction
+  const addTransaction = async (transactionData) => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      
+      // Use mock data in development
+      if (useMockData) {
+        const newTransaction = {
+          id: `trans-${Date.now()}`,
+          date: new Date().toISOString().split('T')[0],
+          ...transactionData
+        };
+        
+        // Add to expenses array if it's an expense
+        if (transactionData.type === 'expense') {
+          setExpenses(prev => [...prev, newTransaction]);
+        }
+        
+        // Update dashboard summary with new transaction
+        if (dashboardSummary && dashboardSummary.recent_transactions) {
+          setDashboardSummary({
+            ...dashboardSummary,
+            recent_transactions: [
+              newTransaction,
+              ...dashboardSummary.recent_transactions.slice(0, 4)
+            ]
+          });
+        }
+        
+        return newTransaction;
+      }
+      
+      const authHeader = await getAuthHeader();
+      const response = await axios.post('/api/finance/transactions', transactionData, authHeader);
+      
+      // Update expenses list if it's an expense
+      if (transactionData.type === 'expense') {
+        setExpenses(prev => [...prev, response.data]);
+      }
+      
+      return response.data;
+    } catch (err) {
+      setError('Failed to add transaction');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete transaction
+  const deleteTransaction = async (transactionId) => {
+    if (!currentUser) return;
+    
+    try {
+      setLoading(true);
+      
+      // Use mock data in development
+      if (useMockData) {
+        // Remove from expenses
+        setExpenses(prev => prev.filter(exp => exp.id !== transactionId));
+        
+        // Remove from dashboard recent transactions
+        if (dashboardSummary && dashboardSummary.recent_transactions) {
+          setDashboardSummary({
+            ...dashboardSummary,
+            recent_transactions: dashboardSummary.recent_transactions.filter(
+              t => t.id !== transactionId
+            )
+          });
+        }
+        
+        return { success: true };
+      }
+      
+      const authHeader = await getAuthHeader();
+      await axios.delete(`/api/finance/transactions/${transactionId}`, authHeader);
+      
+      // Update expenses state
+      setExpenses(prev => prev.filter(exp => exp.id !== transactionId));
+      
+      return { success: true };
+    } catch (err) {
+      setError('Failed to delete transaction');
+      console.error(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch debts
   const fetchDebts = async () => {
     if (!currentUser) return;
@@ -362,15 +455,38 @@ export const FinanceProvider = ({ children }) => {
         const debt = debts.find(d => d.id === debtId);
         if (!debt) return null;
         
-        const monthsToPayoff = Math.ceil(debt.balance / (debt.minimum_payment + additionalPayment));
-        const totalInterest = (debt.balance * (debt.interest_rate / 100) * (monthsToPayoff / 12));
+        // Calculate minimum payment strategy
+        const minMonthsToPayoff = Math.ceil(debt.balance / debt.minimum_payment);
+        const minTotalInterest = (debt.balance * (debt.interest_rate / 100) * (minMonthsToPayoff / 12));
+        const minPayoffDate = new Date();
+        minPayoffDate.setMonth(minPayoffDate.getMonth() + minMonthsToPayoff);
+        
+        // Calculate accelerated payment strategy
+        const totalMonthlyPayment = debt.minimum_payment + additionalPayment;
+        const accMonthsToPayoff = Math.ceil(debt.balance / totalMonthlyPayment);
+        const accTotalInterest = (debt.balance * (debt.interest_rate / 100) * (accMonthsToPayoff / 12));
+        const accPayoffDate = new Date();
+        accPayoffDate.setMonth(accPayoffDate.getMonth() + accMonthsToPayoff);
+        
+        // Calculate savings
+        const monthsSaved = minMonthsToPayoff - accMonthsToPayoff;
+        const interestSaved = minTotalInterest - accTotalInterest;
         
         return {
-          months_to_payoff: monthsToPayoff,
-          total_interest: totalInterest,
-          total_payment: debt.balance + totalInterest,
-          monthly_payment: debt.minimum_payment + additionalPayment,
-          payoff_date: new Date(Date.now() + monthsToPayoff * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          minimum_payment_strategy: {
+            months_to_payoff: minMonthsToPayoff,
+            total_interest_paid: minTotalInterest,
+            payoff_date: minPayoffDate.toISOString().split('T')[0]
+          },
+          accelerated_payment_strategy: {
+            months_to_payoff: accMonthsToPayoff,
+            total_interest_paid: accTotalInterest,
+            payoff_date: accPayoffDate.toISOString().split('T')[0]
+          },
+          savings: {
+            months_saved: monthsSaved,
+            interest_saved: interestSaved
+          }
         };
       }
       
@@ -463,6 +579,16 @@ export const FinanceProvider = ({ children }) => {
           goal.id === goalId ? { ...goal, ...updatedData } : goal
         );
         setSavingsGoals(updatedGoals);
+        
+        // Update dashboard summary to reflect the changes in savings goals
+        if (dashboardSummary) {
+          const totalSavings = updatedGoals.reduce((sum, goal) => sum + goal.current_amount, 0);
+          setDashboardSummary({
+            ...dashboardSummary,
+            total_savings: totalSavings
+          });
+        }
+        
         return updatedGoals.find(goal => goal.id === goalId);
       }
       
@@ -473,6 +599,18 @@ export const FinanceProvider = ({ children }) => {
         goal.id === goalId ? { ...goal, ...response.data } : goal
       );
       setSavingsGoals(updatedGoals);
+      
+      // Update dashboard summary with the updated savings goals
+      if (dashboardSummary) {
+        const totalSavings = updatedGoals.reduce((sum, goal) => sum + goal.current_amount, 0);
+        setDashboardSummary({
+          ...dashboardSummary,
+          total_savings: totalSavings
+        });
+        
+        // Also update the fetchDashboardSummary to include the latest savings goals data
+        fetchDashboardSummary();
+      }
       
       return response.data;
     } catch (err) {
@@ -616,6 +754,8 @@ export const FinanceProvider = ({ children }) => {
     createBudget,
     fetchExpenses,
     createExpense,
+    addTransaction,
+    deleteTransaction,
     fetchDebts,
     createDebt,
     getDebtPayoffStrategy,

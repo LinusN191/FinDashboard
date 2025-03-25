@@ -39,6 +39,7 @@ import { useFinance } from '../../context/FinanceContext';
 import { useError } from '../../context/ErrorContext';
 import ErrorWrapper from '../ErrorWrapper';
 import withErrorHandling from '../withErrorHandling';
+import ExpenseFilter from './ExpenseFilter';
 
 const ExpenseTracker = ({ compact = false, limit = 10 }) => {
   const { expenses, addTransaction, deleteTransaction, loading } = useFinance();
@@ -75,21 +76,27 @@ const ExpenseTracker = ({ compact = false, limit = 10 }) => {
   // Filter expenses based on filters
   const handleFilter = (filterParams) => {
     try {
+      // Validate filterParams to ensure it's a valid object
+      if (!filterParams || typeof filterParams !== 'object') {
+        console.warn('Invalid filter parameters received:', filterParams);
+        return;
+      }
+      
       // Apply filters to expenses
       let filtered = [...expenses];
       
       // Filter by type
-      if (filterParams.type !== 'all') {
+      if (filterParams.type && filterParams.type !== 'all') {
         filtered = filtered.filter(expense => expense.type === filterParams.type);
       }
       
       // Filter by category
-      if (filterParams.category !== 'all') {
+      if (filterParams.category && filterParams.category !== 'all') {
         filtered = filtered.filter(expense => expense.category === filterParams.category);
       }
       
       // Filter by date
-      if (filterParams.date !== 'all') {
+      if (filterParams.date && filterParams.date !== 'all') {
         const today = new Date();
         let dateLimit;
         
@@ -116,7 +123,7 @@ const ExpenseTracker = ({ compact = false, limit = 10 }) => {
       }
       
       // Filter by amount
-      if (filterParams.amount !== 'all') {
+      if (filterParams.amount && filterParams.amount !== 'all') {
         let min = 0, max = Infinity;
         
         switch (filterParams.amount) {
@@ -144,6 +151,11 @@ const ExpenseTracker = ({ compact = false, limit = 10 }) => {
         });
       }
       
+      // Filter by payment method
+      if (filterParams.payment_method && filterParams.payment_method !== 'all') {
+        filtered = filtered.filter(expense => expense.payment_method === filterParams.payment_method);
+      }
+      
       // Sort by date (newest first)
       filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
       
@@ -153,10 +165,17 @@ const ExpenseTracker = ({ compact = false, limit = 10 }) => {
       }
       
       setFilteredExpenses(filtered);
+      setLoadError(null);
+      clearError('expense-tracker');
     } catch (error) {
       console.error('Error filtering expenses:', error);
-      setLoadError('Error filtering expenses');
-      registerError('expense-tracker', { message: 'Failed to filter expenses' });
+      const errorMessage = 'Error filtering expenses: ' + (error.message || 'Unknown error');
+      setLoadError(errorMessage);
+      registerError('expense-tracker', { 
+        message: errorMessage,
+        details: error.stack || error.toString(),
+        timestamp: new Date().toISOString() 
+      });
     }
   };
   
@@ -567,10 +586,17 @@ const formatDate = (dateString) => {
 };
 
 const formatPaymentMethod = (method) => {
-  return method
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+  if (!method) return 'Unknown';
+  
+  try {
+    return method
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  } catch (error) {
+    console.error('Error formatting payment method:', error);
+    return String(method || 'Unknown');
+  }
 };
 
 export default withErrorHandling(ExpenseTracker, {

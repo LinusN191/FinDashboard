@@ -182,7 +182,7 @@ const IncomeManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     amount: '',
-    source: 'salary',
+    source: '',
     isRecurring: false,
     frequency: 'monthly',
     nextDate: new Date().toISOString().split('T')[0],
@@ -383,7 +383,7 @@ const IncomeManager = () => {
     setFormData({
       name: '',
       amount: '',
-      source: 'salary',
+      source: '',
       isRecurring: false,
       frequency: 'monthly',
       nextDate: new Date().toISOString().split('T')[0],
@@ -577,19 +577,26 @@ const IncomeManager = () => {
             
             <FormControl mb={4} isInvalid={formErrors.source}>
               <FormLabel>Income Source</FormLabel>
-              <Select 
+              <Select
+                id="source"
                 name="source"
                 value={formData.source}
                 onChange={handleInputChange}
+                isInvalid={!!formErrors.source}
               >
-                <option value="salary">Salary</option>
-                <option value="freelance">Freelance</option>
-                <option value="investments">Investments</option>
-                <option value="business">Business</option>
-                <option value="rental">Rental</option>
-                <option value="sideGig">Side Gig</option>
-                <option value="gifts">Gifts</option>
-                <option value="other">Other</option>
+                <option value="">Select Income Source</option>
+                <option value="Salary">Salary</option>
+                <option value="Freelance">Freelance</option>
+                <option value="Business">Business Income</option>
+                <option value="Investments">Investments</option>
+                <option value="Dividends">Dividends</option>
+                <option value="RentalIncome">Rental Income</option>
+                <option value="CapitalGains">Capital Gains</option>
+                <option value="Pension">Pension</option>
+                <option value="SocialSecurity">Social Security</option>
+                <option value="SideHustle">Side Hustle</option>
+                <option value="Gifts">Gifts</option>
+                <option value="Other">Other</option>
               </Select>
               {formErrors.source && <FormErrorMessage>{formErrors.source}</FormErrorMessage>}
             </FormControl>
