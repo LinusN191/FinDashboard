@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Alert,
@@ -7,15 +7,28 @@ import {
   AlertDescription,
   Button,
   Flex,
-  Text
+  Text,
+  Code,
+  Collapse
 } from '@chakra-ui/react';
-import { FiRefreshCw } from 'react-icons/fi';
+import { FiRefreshCw, FiInfo } from 'react-icons/fi';
 
 /**
  * A reusable error fallback component for use with the useErrorHandler hook
  * or as a fallback for React Error Boundary
  */
 const ErrorFallback = ({ error, resetErrorBoundary, componentName = '' }) => {
+  const [showDetails, setShowDetails] = useState(false);
+  
+  const handleReset = () => {
+    if (resetErrorBoundary) {
+      resetErrorBoundary();
+    } else {
+      // If no reset function provided, refresh the page as a fallback
+      window.location.reload();
+    }
+  };
+
   return (
     <Box
       p={4}
@@ -25,6 +38,8 @@ const ErrorFallback = ({ error, resetErrorBoundary, componentName = '' }) => {
       bg="red.50"
       color="red.800"
       my={2}
+      maxW="800px"
+      mx="auto"
     >
       <Alert
         status="error"
@@ -40,22 +55,47 @@ const ErrorFallback = ({ error, resetErrorBoundary, componentName = '' }) => {
           </AlertTitle>
         </Flex>
         
-        <AlertDescription mt={2}>
+        <AlertDescription mt={2} width="100%">
           <Text fontSize="sm">
             {error?.message || "An unexpected error occurred"}
           </Text>
-          
-          {resetErrorBoundary && (
+
+          <Flex mt={4} justifyContent="space-between" flexWrap="wrap" gap={2}>
             <Button
-              mt={3}
               size="sm"
               leftIcon={<FiRefreshCw />}
               colorScheme="red"
-              onClick={resetErrorBoundary}
+              onClick={handleReset}
             >
-              Retry
+              Try Again
             </Button>
-          )}
+            
+            <Button
+              size="sm"
+              leftIcon={<FiInfo />}
+              variant="outline"
+              colorScheme="red"
+              onClick={() => setShowDetails(!showDetails)}
+            >
+              {showDetails ? 'Hide' : 'Show'} Details
+            </Button>
+          </Flex>
+          
+          <Collapse in={showDetails} animateOpacity>
+            <Box 
+              mt={4} 
+              p={3} 
+              bg="blackAlpha.50" 
+              borderRadius="md" 
+              fontSize="xs"
+              overflowX="auto"
+            >
+              <Text fontWeight="bold" mb={2}>Error Details:</Text>
+              <Code display="block" whiteSpace="pre-wrap" p={2}>
+                {error?.stack || JSON.stringify(error, null, 2) || "No additional details available"}
+              </Code>
+            </Box>
+          </Collapse>
         </AlertDescription>
       </Alert>
     </Box>

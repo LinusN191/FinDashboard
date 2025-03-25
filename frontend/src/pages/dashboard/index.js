@@ -302,16 +302,27 @@ const Dashboard = () => {
             <Heading size="lg" mb={1}>Financial Dashboard</Heading>
             <Text color="gray.500">Your financial overview</Text>
           </Box>
-          <Button 
-            colorScheme="primary" 
-            size="sm"
-            leftIcon={<FiDownload />}
-            onClick={generateReport}
-            isLoading={reportGenerating}
-            loadingText="Generating"
-          >
-            Generate Report
-          </Button>
+          <Flex gap={3}>
+            <Button 
+              as={Link} 
+              href="/" 
+              colorScheme="gray" 
+              variant="outline"
+              leftIcon={<FiArrowRight transform="rotate(180deg)" />}
+            >
+              Home
+            </Button>
+            <Button 
+              colorScheme="primary" 
+              size="sm"
+              leftIcon={<FiDownload />}
+              onClick={generateReport}
+              isLoading={reportGenerating}
+              loadingText="Generating"
+            >
+              Generate Report
+            </Button>
+          </Flex>
         </Flex>
         
         {reportError && (

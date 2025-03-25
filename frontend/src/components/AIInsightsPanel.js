@@ -17,7 +17,8 @@ import {
   useColorModeValue,
   Spinner,
   Alert,
-  AlertIcon
+  AlertIcon,
+  useDisclosure
 } from '@chakra-ui/react';
 import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiTarget, FiAlertCircle, FiBarChart2, FiPieChart, FiRefreshCw } from 'react-icons/fi';
 import { useInvestment } from '../context/InvestmentContext';
@@ -25,6 +26,7 @@ import { useFinance } from '../context/FinanceContext';
 import { useError } from '../context/ErrorContext';
 import ErrorWrapper from './ErrorWrapper';
 import withErrorHandling from './withErrorHandling';
+import RetirementCalculator from './Finance/RetirementCalculator';
 
 // Insight card component
 const InsightCard = ({ title, description, type, icon, actionText, onAction }) => {
@@ -90,6 +92,8 @@ const AIInsightsPanel = () => {
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [currentInsightId, setCurrentInsightId] = useState(null);
   
   // Function to generate and load insights
   const loadInsights = useCallback(() => {
@@ -192,7 +196,15 @@ const AIInsightsPanel = () => {
   const handleInsightAction = (insightId) => {
     try {
       console.log(`Action taken on insight: ${insightId}`);
-      // In a real app, this would navigate to a specific page or open a modal with details
+      setCurrentInsightId(insightId);
+      
+      // Check for specific insight actions
+      if (insightId === 6) {
+        // This is the retirement benefits calculator
+        onOpen();
+      }
+      // Add other specific actions for different insight IDs
+      
     } catch (err) {
       console.error('Error handling insight action:', err);
       registerError('ai-insights', { 
@@ -371,6 +383,9 @@ const AIInsightsPanel = () => {
           </Accordion>
         )}
       </Box>
+      
+      {/* Retirement Calculator Modal */}
+      <RetirementCalculator isOpen={isOpen && currentInsightId === 6} onClose={onClose} />
     </Box>
   );
 };

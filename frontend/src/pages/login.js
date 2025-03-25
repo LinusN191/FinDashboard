@@ -55,7 +55,7 @@ const Login = () => {
       setLoginStatus('logging-in');
       await login(email, password);
       setLoginStatus('success');
-      router.push('/dashboard');
+      router.push('/home');
     } catch (err) {
       console.error('Login error:', err);
       setLoginStatus('failed');
@@ -71,7 +71,7 @@ const Login = () => {
       setLoginStatus('logging-in');
       await loginWithGoogle();
       setLoginStatus('success');
-      router.push('/dashboard');
+      router.push('/home');
     } catch (err) {
       console.error('Google login error:', err);
       setLoginStatus('failed');

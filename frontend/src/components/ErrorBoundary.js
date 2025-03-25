@@ -49,96 +49,143 @@ class ErrorBoundary extends Component {
     }
   }
 
-  handleReset = () => {
-    this.setState({ 
+  toggleDetails = () => {
+    this.setState(prevState => ({
+      showDetails: !prevState.showDetails
+    }));
+  }
+
+  resetError = () => {
+    this.setState({
       hasError: false,
       error: null,
       errorInfo: null,
       showDetails: false
     });
-  }
+    
+    // Call the onReset callback if provided
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
 
-  toggleDetails = () => {
-    this.setState(prevState => ({ 
-      showDetails: !prevState.showDetails
-    }));
+    // Force refresh the page as a last resort if the app is in a broken state
+    if (this.props.refreshOnReset) {
+      window.location.href = '/';
+    }
   }
-
+  
   render() {
-    if (this.state.hasError) {
-      // Render fallback UI
+    const { hasError, error, errorInfo, showDetails } = this.state;
+    const { fallback, children } = this.props;
+    
+    // Don't show error for errors inside ErrorBoundary itself
+    try {
+      // If there's no error, render children
+      if (!hasError) {
+        return children;
+      }
+      
+      // If a custom fallback is provided, use it
+      if (fallback) {
+        return fallback({ error, resetError: this.resetError });
+      }
+      
+      // Default error UI
       return (
-        <Box p={5} borderRadius="md" boxShadow="md" bg="white" my={4}>
-          <Alert
-            status="error"
+        <Box 
+          p={5} 
+          borderWidth="1px" 
+          borderRadius="lg" 
+          borderColor="red.200"
+          bg="red.50"
+          maxW="800px"
+          mx="auto"
+          my={8}
+        >
+          <Alert 
+            status="error" 
             variant="subtle"
             flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            textAlign="center"
+            alignItems="flex-start"
             borderRadius="md"
-            p={5}
           >
-            <FiAlertTriangle size="40px" />
-            <AlertTitle mt={4} mb={1} fontSize="lg">
-              Something went wrong
-            </AlertTitle>
-            <AlertDescription maxWidth="md">
+            <Stack direction="row" w="100%" align="center">
+              <AlertIcon as={FiAlertTriangle} boxSize={6} mr={2} />
+              <AlertTitle fontSize="lg" fontWeight="bold">
+                Something went wrong
+              </AlertTitle>
+            </Stack>
+            
+            <AlertDescription mt={4} w="100%">
               <Text mb={4}>
-                {this.state.error?.message || "An unexpected error occurred while rendering this component."}
+                {error?.message || "An unexpected error occurred in the application."}
               </Text>
               
-              <Stack spacing={4} direction="column" align="center">
+              <Stack direction={{ base: 'column', md: 'row' }} spacing={4} mt={2}>
                 <Button
                   leftIcon={<FiRefreshCw />}
                   colorScheme="red"
-                  variant="outline"
-                  onClick={this.handleReset}
+                  onClick={this.resetError}
+                  size="sm"
                 >
                   Try Again
                 </Button>
                 
-                <Button 
-                  size="sm" 
-                  variant="link" 
-                  onClick={this.toggleDetails}
-                >
-                  {this.state.showDetails ? "Hide Technical Details" : "Show Technical Details"}
-                </Button>
-                
-                <Collapse in={this.state.showDetails} animateOpacity>
-                  <Box
-                    p={4}
-                    bg="gray.50"
-                    borderRadius="md"
-                    maxWidth="100%"
-                    overflowX="auto"
-                    textAlign="left"
+                {errorInfo && (
+                  <Button
+                    variant="outline"
+                    colorScheme="red"
+                    onClick={this.toggleDetails}
+                    size="sm"
                   >
-                    <Text fontWeight="bold" mb={2}>Error Stack:</Text>
-                    <Code colorScheme="red" whiteSpace="pre-wrap" display="block" p={2} fontSize="xs">
-                      {this.state.error?.stack}
+                    {showDetails ? 'Hide' : 'Show'} Technical Details
+                  </Button>
+                )}
+              </Stack>
+              
+              {errorInfo && (
+                <Collapse in={showDetails} animateOpacity>
+                  <Box 
+                    mt={4} 
+                    p={3} 
+                    bg="blackAlpha.50" 
+                    borderRadius="md" 
+                    overflowX="auto"
+                  >
+                    <Text fontWeight="bold" fontSize="sm" mb={2}>Error Stack Trace:</Text>
+                    <Code display="block" whiteSpace="pre-wrap" fontSize="xs" p={2}>
+                      {errorInfo.componentStack}
                     </Code>
-                    
-                    {this.state.errorInfo && (
-                      <>
-                        <Text fontWeight="bold" mt={4} mb={2}>Component Stack:</Text>
-                        <Code colorScheme="red" whiteSpace="pre-wrap" display="block" p={2} fontSize="xs">
-                          {this.state.errorInfo.componentStack}
-                        </Code>
-                      </>
-                    )}
                   </Box>
                 </Collapse>
-              </Stack>
+              )}
+            </AlertDescription>
+          </Alert>
+        </Box>
+      );
+    } catch (internalError) {
+      // If there's an error rendering the error UI, render minimal fallback
+      console.error('Error rendering error boundary UI:', internalError);
+      return (
+        <Box p={5} borderWidth="1px" borderRadius="lg" mx="auto" my={8}>
+          <Alert status="error">
+            <AlertIcon />
+            <AlertTitle>Critical Error</AlertTitle>
+            <AlertDescription>
+              The application has encountered a critical error.
+              <Button
+                ml={4}
+                size="sm"
+                colorScheme="red"
+                onClick={() => window.location.href = '/'}
+              >
+                Reload App
+              </Button>
             </AlertDescription>
           </Alert>
         </Box>
       );
     }
-
-    // If there's no error, render children normally
-    return this.props.children;
   }
 }
 

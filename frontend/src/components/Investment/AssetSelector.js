@@ -16,12 +16,17 @@ import {
   Tooltip,
   HStack,
   Tag,
-  TagLabel
+  TagLabel,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem
 } from '@chakra-ui/react';
-import { FiSearch, FiTrendingUp, FiDollarSign, FiFilter } from 'react-icons/fi';
+import { FiSearch, FiTrendingUp, FiDollarSign, FiFilter, FiMoreVertical } from 'react-icons/fi';
 import { useInvestment } from '../../context/InvestmentContext';
 
-const AssetSelector = ({ onSelectAsset, onSearch, activeFilters = {} }) => {
+const AssetSelector = ({ onAssetSelect, onCompareSelect, activeFilters = {} }) => {
   const { searchAssets, searchResults, loading, assetTypes } = useInvestment();
   const [query, setQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -110,8 +115,22 @@ const AssetSelector = ({ onSelectAsset, onSearch, activeFilters = {} }) => {
 
   // Handle asset selection
   const handleSelectAsset = (ticker, name, type = 'stock') => {
-    if (onSelectAsset) {
-      onSelectAsset(ticker, name, type);
+    if (onAssetSelect) {
+      onAssetSelect(ticker, name, type);
+    }
+    setQuery('');
+    setIsSearchOpen(false);
+    setSearchPerformed(false);
+  };
+
+  // Handle comparison selection
+  const handleCompareSelect = (ticker, name) => {
+    if (onCompareSelect) {
+      try {
+        onCompareSelect(ticker);
+      } catch (err) {
+        console.error("Error handling comparison selection:", err);
+      }
     }
     setQuery('');
     setIsSearchOpen(false);
@@ -255,6 +274,21 @@ const AssetSelector = ({ onSelectAsset, onSearch, activeFilters = {} }) => {
                             {result.type}
                           </Badge>
                         </Tooltip>
+                        {onCompareSelect && (
+                          <Tooltip label="Compare with this asset">
+                            <IconButton
+                              icon={<FiMoreVertical />}
+                              variant="ghost"
+                              size="sm"
+                              ml={1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCompareSelect(result.ticker, result.name);
+                              }}
+                              aria-label="Compare"
+                            />
+                          </Tooltip>
+                        )}
                       </Flex>
                     </Flex>
                   </Button>

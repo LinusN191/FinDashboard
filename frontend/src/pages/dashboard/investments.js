@@ -148,15 +148,23 @@ const Investments = () => {
     setActiveFilters(filters);
     // Auto-refresh search results if there's a current search query
     if (selectedTicker) {
-      // We could trigger a search here with the new filters
-      // For now, just show a toast to inform the user
-      toast({
-        title: "Filters Applied",
-        description: `Filtering assets by ${filters.assetType ? filters.assetType : 'all types'} with ${filters.characteristics.length} characteristics`,
-        status: "info",
-        duration: 3000,
-        isClosable: true,
-      });
+      // Set a loading state to indicate filters are being applied
+      setLocalLoading(true);
+      
+      // Add a slight delay to ensure data is processed before showing the toast
+      setTimeout(() => {
+        // Show toast after a delay to ensure data is loaded
+        toast({
+          title: "Filters Applied",
+          description: `Filtering assets by ${filters.assetType ? filters.assetType : 'all types'} with ${filters.characteristics?.length || 0} characteristics`,
+          status: "info",
+          duration: 3000,
+          isClosable: true,
+        });
+        
+        // Reset loading state
+        setLocalLoading(false);
+      }, 800); // Allow time for the data to be processed
     }
   };
   

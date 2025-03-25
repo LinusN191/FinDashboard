@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Box,
   Button,
@@ -12,12 +12,16 @@ import {
   Icon,
   HStack,
   VStack,
-  useColorModeValue
+  useColorModeValue,
+  Center,
+  Spinner
 } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import NextLink from 'next/link';
-import { FiBarChart2, FiDollarSign, FiPieChart, FiTarget, FiShield } from 'react-icons/fi';
+import { FiBarChart2, FiDollarSign, FiPieChart, FiTarget, FiShield, FiUser, FiBriefcase, FiUsers, FiArrowRight } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
+import ErrorFallback from '../components/ErrorFallback';
+import { useError } from '../context/ErrorContext';
 
 const Feature = ({ title, text, icon }) => {
   return (
@@ -52,25 +56,32 @@ const Feature = ({ title, text, icon }) => {
 const Testimonial = ({ content, author, position }) => {
   return (
     <Box
-      px={8}
-      py={10}
-      rounded={'xl'}
       bg={useColorModeValue('white', 'gray.700')}
+      p={6}
+      rounded={'lg'}
       boxShadow={'lg'}
+      position={'relative'}
+      zIndex={1}
     >
-      <Text 
-        fontSize={'lg'} 
-        mb={4}
-        color={useColorModeValue('gray.700', 'white')}
-        fontStyle={'italic'}
-      >
+      <Text fontWeight={'medium'} fontSize={'lg'} mb={4} fontStyle={'italic'}>
         "{content}"
       </Text>
-      <HStack align={'center'}>
-        <Box h={10} w={10} rounded={'full'} bg={'gray.300'} />
-        <VStack align={'start'} spacing={0}>
-          <Text fontWeight={600}>{author}</Text>
-          <Text fontSize={'sm'} color={useColorModeValue('gray.500', 'gray.400')}>
+      <HStack spacing={2} mt={8}>
+        <Box
+          w={10}
+          h={10}
+          bg={'primary.100'}
+          color={'primary.600'}
+          rounded={'full'}
+          display={'flex'}
+          alignItems={'center'}
+          justifyContent={'center'}
+        >
+          {author.charAt(0)}
+        </Box>
+        <VStack align={'flex-start'} spacing={0}>
+          <Text fontWeight={'bold'}>{author}</Text>
+          <Text fontSize={'sm'} color={useColorModeValue('gray.600', 'gray.300')}>
             {position}
           </Text>
         </VStack>
@@ -79,18 +90,170 @@ const Testimonial = ({ content, author, position }) => {
   );
 };
 
+const ModeCard = ({ title, description, icon, color, path }) => {
+  const router = useRouter();
+  
+  // Card styling
+  const cardBg = useColorModeValue('white', 'gray.700');
+  const textColor = useColorModeValue('gray.600', 'gray.300');
+  
+  return (
+    <Box
+      bg={cardBg}
+      borderRadius="lg"
+      boxShadow="xl"
+      overflow="hidden"
+      borderWidth="1px"
+      borderColor={`${color}.200`}
+      _hover={{
+        transform: 'translateY(-5px)',
+        boxShadow: '2xl',
+        borderColor: `${color}.400`
+      }}
+      transition="all 0.3s ease"
+      position="relative"
+      h="100%"
+    >
+      <Box
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        h="8px"
+        bg={`${color}.500`}
+      />
+      
+      <VStack p={8} spacing={6} align="flex-start" h="100%">
+        <Flex
+          w="70px"
+          h="70px"
+          borderRadius="full"
+          bg={`${color}.100`}
+          color={`${color}.500`}
+          justify="center"
+          align="center"
+        >
+          <Icon as={icon} boxSize={8} />
+        </Flex>
+        
+        <VStack align="flex-start" spacing={4}>
+          <Heading size="lg">{title}</Heading>
+          <Text color={textColor} fontSize="md">
+            {description}
+          </Text>
+        </VStack>
+        
+        <Box flex="1" />
+        
+        <NextLink href={path} passHref>
+          <Button
+            as="a"
+            rightIcon={<FiArrowRight />}
+            colorScheme={color}
+            size="lg"
+            w="full"
+            mt={4}
+          >
+            Go to {title}
+          </Button>
+        </NextLink>
+      </VStack>
+    </Box>
+  );
+};
+
 const Home = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { currentUser, loading } = useAuth();
+  const { createErrorHandler } = useError();
+  const handleError = createErrorHandler('HomePage');
   
   const handleGetStarted = () => {
-    if (user) {
-      router.push('/dashboard');
-    } else {
-      router.push('/signup');
+    try {
+      if (currentUser) {
+        router.push('/dashboard');
+      } else {
+        router.push('/signup');
+      }
+    } catch (error) {
+      handleError(error, 'navigation');
     }
   };
 
+  // Mode options data
+  const modeOptions = [
+    {
+      id: 'personal',
+      title: 'Personal Finance',
+      description: 'Manage your personal finances, budget, expenses, and investments.',
+      icon: FiUser,
+      color: 'blue',
+      path: '/dashboard'
+    },
+    {
+      id: 'business',
+      title: 'Business Finance',
+      description: 'Track business transactions, invoices, expenses, and generate financial reports.',
+      icon: FiBriefcase,
+      color: 'green',
+      path: '/business'
+    },
+    {
+      id: 'group',
+      title: 'Group Investment',
+      description: 'Manage group investments, track contributions, and analyze performance.',
+      icon: FiUsers,
+      color: 'purple',
+      path: '/group'
+    }
+  ];
+
+  if (loading) {
+    return (
+      <Center h="100vh">
+        <Spinner size="xl" color="blue.500" />
+      </Center>
+    );
+  }
+
+  // If user is logged in, show the mode selection cards
+  if (currentUser) {
+    return (
+      <Box>
+        {/* Navigation */}
+        <Box as="nav" py={4} px={8} borderBottom={1} borderStyle={'solid'} borderColor={useColorModeValue('gray.200', 'gray.700')}>
+          <Flex justify={'space-between'} align={'center'} maxW={'7xl'} mx={'auto'}>
+            <Heading as="h1" size="lg" color={'primary.500'}>FinDashboard</Heading>
+          </Flex>
+        </Box>
+
+        {/* Mode Selection Section */}
+        <Container maxW="container.xl" py={12}>
+          <VStack spacing={8} textAlign="center" mb={12}>
+            <Heading size="2xl">Choose Your Finance Mode</Heading>
+            <Text fontSize="xl" color={useColorModeValue('gray.600', 'gray.300')} maxW="2xl">
+              Select your financial management mode to navigate to the module you want to use
+            </Text>
+          </VStack>
+          
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={10} px={4}>
+            {modeOptions.map((mode) => (
+              <ModeCard
+                key={mode.id}
+                title={mode.title}
+                description={mode.description}
+                icon={mode.icon}
+                color={mode.color}
+                path={mode.path}
+              />
+            ))}
+          </SimpleGrid>
+        </Container>
+      </Box>
+    );
+  }
+
+  // For non-logged in users, show the marketing landing page
   return (
     <Box>
       {/* Navigation */}
@@ -98,7 +261,7 @@ const Home = () => {
         <Flex justify={'space-between'} align={'center'} maxW={'7xl'} mx={'auto'}>
           <Heading as="h1" size="lg" color={'primary.500'}>FinDashboard</Heading>
           <HStack spacing={8}>
-            {user ? (
+            {currentUser ? (
               <NextLink href="/dashboard" passHref>
                 <Button colorScheme="primary" variant="solid">
                   Dashboard
@@ -303,7 +466,7 @@ const Home = () => {
               fontSize={'lg'}
               onClick={handleGetStarted}
             >
-              {user ? 'Go to Dashboard' : 'Sign Up for Free'}
+              {currentUser ? 'Go to Dashboard' : 'Sign Up for Free'}
             </Button>
             <Text fontSize={'sm'} color={useColorModeValue('gray.500', 'gray.400')}>
               No credit card required
@@ -329,7 +492,7 @@ const Home = () => {
           justify={{ base: 'center', md: 'space-between' }}
           align={{ base: 'center', md: 'center' }}
         >
-          <Text> 2024 FinDashboard. All rights reserved</Text>
+          <Text> 2025 FinDashboard. All rights reserved</Text>
           <Stack direction={'row'} spacing={6}>
             <NextLink href="/terms" passHref>
               <Button variant="link">Terms</Button>

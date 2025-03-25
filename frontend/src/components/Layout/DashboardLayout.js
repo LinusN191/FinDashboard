@@ -22,7 +22,11 @@ import {
   useDisclosure,
   Divider,
   Link,
-  HStack
+  HStack,
+  Button,
+  ButtonGroup,
+  Tooltip,
+  useToast
 } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import NextLink from 'next/link';
@@ -38,10 +42,19 @@ import {
   FiBarChart2,
   FiPieChart,
   FiTarget,
-  FiTrendingUp
+  FiTrendingUp,
+  FiBriefcase,
+  FiUsers
 } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import NotificationCenter from '../Notifications/NotificationCenter';
+
+// Mode switch constants
+const MODES = {
+  PERSONAL: 'personal',
+  BUSINESS: 'business',
+  GROUP: 'group'
+};
 
 const NavItem = ({ icon, children, href, onClick, isActive }) => {
   const activeColor = useColorModeValue('primary.600', 'primary.300');
@@ -71,6 +84,49 @@ const DashboardLayout = ({ children }) => {
   const { colorMode, toggleColorMode } = useColorMode();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const router = useRouter();
+  const toast = useToast();
+  
+  // Mode state
+  const [currentMode, setCurrentMode] = useState(() => {
+    // Try to get from localStorage
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('appMode');
+      return savedMode || MODES.PERSONAL;
+    }
+    return MODES.PERSONAL;
+  });
+  
+  // Save mode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('appMode', currentMode);
+  }, [currentMode]);
+  
+  // Handle mode switch
+  const handleModeSwitch = (mode) => {
+    setCurrentMode(mode);
+    
+    // Navigate to appropriate dashboard based on mode
+    switch(mode) {
+      case MODES.PERSONAL:
+        router.push('/dashboard');
+        break;
+      case MODES.BUSINESS:
+        router.push('/business');
+        break;
+      case MODES.GROUP:
+        router.push('/group');
+        break;
+      default:
+        router.push('/dashboard');
+    }
+    
+    toast({
+      title: `Switched to ${mode} mode`,
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
   
   const handleLogout = async () => {
     try {
@@ -116,7 +172,7 @@ const DashboardLayout = ({ children }) => {
             onClick={onOpen}
             mr="2"
           />
-          <NextLink href="/dashboard" passHref>
+          <NextLink href="/home" passHref>
             <Link _hover={{ textDecoration: 'none' }}>
               <Heading size="md" fontWeight="bold" color={useColorModeValue('primary.600', 'primary.300')}>
                 FinDashboard
@@ -125,14 +181,50 @@ const DashboardLayout = ({ children }) => {
           </NextLink>
         </Flex>
         
+        {/* Mode Switcher */}
+        <Box display={{ base: 'none', md: 'block' }} ml={4}>
+          <ButtonGroup size="sm" isAttached variant="outline">
+            <Tooltip label="Personal Finance Mode">
+              <Button
+                leftIcon={<FiUser />}
+                onClick={() => handleModeSwitch(MODES.PERSONAL)}
+                colorScheme={currentMode === MODES.PERSONAL ? 'blue' : 'gray'}
+                variant={currentMode === MODES.PERSONAL ? 'solid' : 'outline'}
+              >
+                Personal
+              </Button>
+            </Tooltip>
+            <Tooltip label="Business Finance Mode">
+              <Button
+                leftIcon={<FiBriefcase />}
+                onClick={() => handleModeSwitch(MODES.BUSINESS)}
+                colorScheme={currentMode === MODES.BUSINESS ? 'green' : 'gray'}
+                variant={currentMode === MODES.BUSINESS ? 'solid' : 'outline'}
+              >
+                Business
+              </Button>
+            </Tooltip>
+            <Tooltip label="Group Investment Mode">
+              <Button
+                leftIcon={<FiUsers />}
+                onClick={() => handleModeSwitch(MODES.GROUP)}
+                colorScheme={currentMode === MODES.GROUP ? 'purple' : 'gray'}
+                variant={currentMode === MODES.GROUP ? 'solid' : 'outline'}
+              >
+                Group
+              </Button>
+            </Tooltip>
+          </ButtonGroup>
+        </Box>
+        
         {/* Desktop Navigation */}
         <HStack spacing={8} display={{ base: 'none', md: 'flex' }}>
           <NavItem 
-            href="/dashboard" 
+            href="/home" 
             icon={<FiHome />} 
-            isActive={isActiveRoute('/dashboard')}
+            isActive={isActiveRoute('/home')}
           >
-            Overview
+            Home
           </NavItem>
           <NavItem 
             href="/dashboard/investments" 
@@ -185,14 +277,59 @@ const DashboardLayout = ({ children }) => {
           <DrawerCloseButton />
           <DrawerHeader borderBottomWidth="1px">FinDashboard</DrawerHeader>
           <DrawerBody>
+            {/* Mobile Mode Switcher */}
+            <Box mb={6}>
+              <Text fontWeight="medium" mb={2}>Mode:</Text>
+              <ButtonGroup size="sm" isAttached variant="outline" width="full">
+                <Button
+                  leftIcon={<FiUser />}
+                  onClick={() => {
+                    handleModeSwitch(MODES.PERSONAL);
+                    onClose();
+                  }}
+                  colorScheme={currentMode === MODES.PERSONAL ? 'blue' : 'gray'}
+                  variant={currentMode === MODES.PERSONAL ? 'solid' : 'outline'}
+                  flex="1"
+                >
+                  Personal
+                </Button>
+                <Button
+                  leftIcon={<FiBriefcase />}
+                  onClick={() => {
+                    handleModeSwitch(MODES.BUSINESS);
+                    onClose();
+                  }}
+                  colorScheme={currentMode === MODES.BUSINESS ? 'green' : 'gray'}
+                  variant={currentMode === MODES.BUSINESS ? 'solid' : 'outline'}
+                  flex="1"
+                >
+                  Business
+                </Button>
+                <Button
+                  leftIcon={<FiUsers />}
+                  onClick={() => {
+                    handleModeSwitch(MODES.GROUP);
+                    onClose();
+                  }}
+                  colorScheme={currentMode === MODES.GROUP ? 'purple' : 'gray'}
+                  variant={currentMode === MODES.GROUP ? 'solid' : 'outline'}
+                  flex="1"
+                >
+                  Group
+                </Button>
+              </ButtonGroup>
+            </Box>
+            
+            <Divider mb={4} />
+            
             <Stack spacing={4} pt={2}>
               <NavItem 
-                href="/dashboard" 
+                href="/home" 
                 icon={<FiHome />} 
-                isActive={isActiveRoute('/dashboard')}
+                isActive={isActiveRoute('/home')}
                 onClick={onClose}
               >
-                Overview
+                Home
               </NavItem>
               <NavItem 
                 href="/dashboard/investments" 
@@ -210,77 +347,12 @@ const DashboardLayout = ({ children }) => {
               >
                 Personal Finance
               </NavItem>
-              
-              <Divider />
-              
-              <Text fontWeight="bold" color="gray.500" fontSize="sm" px={2} pt={2}>
-                INVESTMENT
-              </Text>
-              <NavItem 
-                href="/dashboard/investments" 
-                icon={<FiTrendingUp />} 
-                onClick={onClose}
-              >
-                Analytics
-              </NavItem>
-              <NavItem 
-                href="/dashboard/portfolio" 
-                icon={<FiPieChart />} 
-                onClick={onClose}
-              >
-                Portfolio
-              </NavItem>
-              
-              <Divider />
-              
-              <Text fontWeight="bold" color="gray.500" fontSize="sm" px={2} pt={2}>
-                PERSONAL FINANCE
-              </Text>
-              <NavItem 
-                href="/dashboard/finance?tab=budget" 
-                icon={<FiDollarSign />} 
-                onClick={onClose}
-              >
-                Budget
-              </NavItem>
-              <NavItem 
-                href="/dashboard/finance?tab=expenses" 
-                icon={<FiDollarSign />} 
-                onClick={onClose}
-              >
-                Expenses
-              </NavItem>
-              <NavItem 
-                href="/dashboard/finance?tab=debt" 
-                icon={<FiDollarSign />} 
-                onClick={onClose}
-              >
-                Debt
-              </NavItem>
-              <NavItem 
-                href="/dashboard/finance?tab=savings" 
-                icon={<FiTarget />} 
-                onClick={onClose}
-              >
-                Savings Goals
-              </NavItem>
-              
-              <Divider />
-              
-              <NavItem 
-                href="/profile" 
-                icon={<FiUser />} 
-                isActive={isActiveRoute('/profile')}
-                onClick={onClose}
-              >
-                Profile
-              </NavItem>
             </Stack>
           </DrawerBody>
         </DrawerContent>
       </Drawer>
 
-      {/* Main Content */}
+      {/* Page Content */}
       <Box py={6} px={{ base: 4, md: 8 }}>
         {children}
       </Box>

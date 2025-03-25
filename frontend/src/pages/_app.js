@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChakraProvider, extendTheme, Box, Text } from '@chakra-ui/react';
+import { ChakraProvider, extendTheme, Box, Text, Alert, AlertIcon, AlertTitle, AlertDescription, Button } from '@chakra-ui/react';
 import { AuthProvider } from '../context/AuthContext';
 import { FinanceProvider } from '../context/FinanceContext';
 import { InvestmentProvider } from '../context/InvestmentContext';
@@ -114,6 +114,23 @@ const theme = extendTheme({
 
 function MyApp({ Component, pageProps }) {
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Error handling function
+  const handleError = (error) => {
+    console.error('Application error:', error);
+    setError(error);
+    setHasError(true);
+  }
+
+  // Reset error state
+  const resetError = () => {
+    setHasError(false);
+    setError(null);
+    // Reload the page to ensure fresh state
+    window.location.href = '/';
+  }
 
   useEffect(() => {
     // Set loading to false after a short delay
@@ -121,7 +138,21 @@ function MyApp({ Component, pageProps }) {
       setIsLoading(false);
     }, 1000);
     
-    return () => clearTimeout(timer);
+    // Add global error handler
+    const handleGlobalError = (event) => {
+      console.error('Global error caught:', event.error);
+      handleError(event.error);
+      // Prevent default error handling
+      event.preventDefault();
+    };
+    
+    // Set up global error listener
+    window.addEventListener('error', handleGlobalError);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('error', handleGlobalError);
+    };
   }, []);
 
   if (isLoading) {
@@ -133,11 +164,46 @@ function MyApp({ Component, pageProps }) {
       </ChakraProvider>
     );
   }
+  
+  if (hasError) {
+    return (
+      <ChakraProvider theme={theme}>
+        <Box maxW="800px" mx="auto" my={10} p={5}>
+          <Alert
+            status="error"
+            variant="subtle"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+            borderRadius="lg"
+            p={6}
+          >
+            <AlertIcon boxSize="40px" mr={0} />
+            <AlertTitle mt={4} mb={1} fontSize="lg">
+              Application Error
+            </AlertTitle>
+            <AlertDescription maxWidth="md">
+              <Text mb={4}>
+                {error?.message || "An unexpected error occurred in the application."}
+              </Text>
+              <Button colorScheme="red" onClick={resetError}>
+                Reload Application
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </Box>
+      </ChakraProvider>
+    );
+  }
 
   return (
     <ChakraProvider theme={theme}>
       <ErrorProvider>
-        <ErrorBoundary>
+        <ErrorBoundary 
+          onReset={resetError}
+          refreshOnReset={true}
+        >
           <AuthProvider>
             <FinanceProvider>
               <InvestmentProvider>

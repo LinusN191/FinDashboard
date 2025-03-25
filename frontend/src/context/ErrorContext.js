@@ -9,16 +9,23 @@ const ErrorContext = createContext();
  */
 export const ErrorProvider = ({ children }) => {
   const [errors, setErrors] = useState({});
+  const [globalError, setGlobalError] = useState(null);
 
   // Register an error for a specific component
   const registerError = useCallback((componentId, error) => {
+    console.group(`Error in ${componentId}`);
+    console.error(error);
+    console.groupEnd();
+    
     setErrors(prevErrors => ({
       ...prevErrors,
       [componentId]: error
     }));
     
-    // Log error for debugging
-    console.error(`Error in ${componentId}:`, error);
+    // If this is a critical error, set it as global
+    if (error?.critical) {
+      setGlobalError(error);
+    }
   }, []);
 
   // Clear an error for a specific component
@@ -28,7 +35,12 @@ export const ErrorProvider = ({ children }) => {
       delete newErrors[componentId];
       return newErrors;
     });
-  }, []);
+    
+    // Clear global error if it was from this component
+    if (globalError?.componentId === componentId) {
+      setGlobalError(null);
+    }
+  }, [globalError]);
 
   // Check if a specific component has an error
   const hasError = useCallback((componentId) => {
@@ -43,16 +55,33 @@ export const ErrorProvider = ({ children }) => {
   // Clear all errors
   const clearAllErrors = useCallback(() => {
     setErrors({});
+    setGlobalError(null);
   }, []);
+  
+  // Create error handler for try/catch blocks
+  const createErrorHandler = useCallback((componentId) => {
+    return (error, action) => {
+      const enhancedError = {
+        ...error,
+        message: error.message || `Error ${action ? 'during ' + action : ''}`,
+        componentId,
+        timestamp: new Date().toISOString()
+      };
+      registerError(componentId, enhancedError);
+      return enhancedError;
+    };
+  }, [registerError]);
 
   // Context value
   const contextValue = {
     errors,
+    globalError,
     registerError,
     clearError,
     hasError,
     getError,
-    clearAllErrors
+    clearAllErrors,
+    createErrorHandler
   };
 
   return (
