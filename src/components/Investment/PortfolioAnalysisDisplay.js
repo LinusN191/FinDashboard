@@ -1,45 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
   Box,
-  Heading,
-  Text,
   Button,
   Flex,
-  Stack,
-  Badge,
-  Divider,
-  Icon,
-  Accordion,
-  AccordionItem,
-  AccordionButton,
-  AccordionPanel,
-  AccordionIcon,
+  Heading,
+  Spinner,
+  Alert,
+  AlertIcon,
+  Text,
+  VStack,
+  List,
+  ListItem,
+  ListIcon,
+  useToast,
   useColorModeValue,
-  VStack, // Added
-  List, // Added
-  ListItem, // Added
-  ListIcon, // Added
-  useToast, // Added
-  Spinner, // Added
-  Link as ChakraLink, // Added
-  Tag, // Added
+  Icon,
+  Divider,
+  Tag,
+  Link as ChakraLink,
 } from '@chakra-ui/react';
-import { FiRefreshCw, FiInfo, FiAlertTriangle, FiThumbsUp, FiBarChart2, FiUser, FiClock, FiPieChart } from 'react-icons/fi'; // Updated icons
-import { useAuth } from '../context/AuthContext'; // Updated path
-import axios from 'axios'; // Added
-import NextLink from 'next/link'; // Added
+import NextLink from 'next/link';
+import { FiRefreshCw, FiInfo, FiAlertTriangle, FiThumbsUp, FiBarChart2, FiUser, FiClock } from 'react-icons/fi';
+import { useAuth } from '../../context/AuthContext';
 
-// Note: The existing InsightCard component is not used in this refactor.
-// The panel will directly display the structured analysis.
-
-const AIInsightsPanel = () => {
+const PortfolioAnalysisDisplay = () => {
   const { currentUser, getIdToken } = useAuth();
   const toast = useToast();
-  const bgColor = useColorModeValue('white', 'gray.700');
-  const headerBgColor = useColorModeValue('gray.50', 'gray.750');
+  const cardBg = useColorModeValue('white', 'gray.700');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const headerBgColor = useColorModeValue('gray.50', 'gray.750'); // Slightly different for header
 
-  // State Management
   const [analysisData, setAnalysisData] = useState(null);
   const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
@@ -53,34 +44,36 @@ const AIInsightsPanel = () => {
 
   const parseRemarks = (remarks) => {
     if (!remarks || typeof remarks !== 'string') return [];
+    // Basic parsing for bullet points or numbered lists
+    // Handles "- item", "* item", "1. item"
     return remarks.split(/\n(?=\s*[-*]|\s*\d+\.\s)/).map(line => line.trim()).filter(line => line);
   };
-  
-  // API Call Logic
+
+
   const fetchAnalysis = useCallback(async () => {
     if (!currentUser || !getIdToken) {
       setAnalysisError("User not authenticated. Cannot fetch analysis.");
-      setIsLoadingAnalysis(false); // Stop loading if no user
       return;
     }
     setIsLoadingAnalysis(true);
     setAnalysisError(null);
-    // setAnalysisData(null); // Optionally clear previous data, or keep it until new data arrives
+    setAnalysisData(null); // Clear previous data
 
     try {
       const token = await getIdToken();
-      if (!token) throw new Error("Authentication token not available.");
-      
-      const response = await axios.post('/api/ai/analyze-portfolio', {}, {
+      if (!token) {
+        throw new Error("Authentication token not available.");
+      }
+      const response = await axios.post('/api/ai/analyze-portfolio', {}, { // Empty object for POST body
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (response.data.success) {
-        setAnalysisData(response.data);
-        if (response.data.analysis) {
-          toast({ title: 'Portfolio Analysis Updated', status: 'success', duration: 3000, isClosable: true });
-        } else if (response.data.message) {
-          toast({ title: 'Portfolio Analysis', description: response.data.message, status: 'info', duration: 5000, isClosable: true });
+        setAnalysisData(response.data); // Store the whole response: { analysis, profileUsed, timestamp }
+        if (response.data.analysis) { // Check if analysis object itself is present
+             toast({ title: 'Portfolio Analysis Updated', status: 'success', duration: 3000, isClosable: true });
+        } else if (response.data.message) { // Handle messages like "No investments to analyze"
+            toast({ title: 'Portfolio Analysis', description: response.data.message, status: 'info', duration: 5000, isClosable: true });
         }
       } else {
         throw new Error(response.data.error || 'Failed to get a successful analysis response.');
@@ -94,16 +87,14 @@ const AIInsightsPanel = () => {
     }
   }, [currentUser, getIdToken, toast]);
 
-  // Initial Data Load
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser) { // Automatically fetch when component mounts and user is available
       fetchAnalysis();
     } else {
-        setAnalysisData(null);
+        setAnalysisData(null); // Clear data if user logs out
         setAnalysisError(null);
-        setIsLoadingAnalysis(false); // Ensure loading is false if no user
     }
-  }, [currentUser, fetchAnalysis]);
+  }, [currentUser, fetchAnalysis]); // fetchAnalysis is memoized
 
 
   const renderAnalysisSection = (title, data, icon, isList = false) => {
@@ -114,14 +105,14 @@ const AIInsightsPanel = () => {
       <Box mb={6}>
         <Flex align="center" mb={2}>
           <Icon as={icon} mr={2} boxSize={5} color="primary.500" />
-          <Heading size="sm">{title}</Heading> {/* Changed to sm for better fit */}
+          <Heading size="md">{title}</Heading>
         </Flex>
         {isList && remarksArray.length > 0 ? (
-          <List spacing={1} pl={2} fontSize="sm"> {/* Reduced spacing and font size */}
+          <List spacing={2} pl={2}>
             {remarksArray.map((item, index) => (
               <ListItem key={index} display="flex" alignItems="flex-start">
-                <ListIcon as={FiInfo} color="primary.400" mt="0.2em" />
-                <Text>{item.replace(/^[-*]\s*|^\d+\.\s*/, '')}</Text> 
+                <ListIcon as={FiInfo} color="primary.500" mt="0.2em" />
+                <Text fontSize="sm">{item.replace(/^[-*]\s*|^\d+\.\s*/, '')}</Text> 
               </ListItem>
             ))}
           </List>
@@ -131,42 +122,46 @@ const AIInsightsPanel = () => {
       </Box>
     );
   };
-  
+
   return (
     <Box
-      borderWidth="1px"
+      bg={cardBg}
+      p={0} // Padding handled by inner content
       borderRadius="lg"
-      overflow="hidden"
-      bg={bgColor}
+      shadow="xl"
+      borderWidth="1px"
       borderColor={borderColor}
-      shadow="md"
     >
-      <Flex 
-        p={4} 
+      <Flex
+        p={4}
         bg={headerBgColor}
         borderBottomWidth="1px"
         borderColor={borderColor}
         alignItems="center"
         justifyContent="space-between"
+        borderTopRadius="lg" // Match overall border radius
       >
-        <Heading size="md">AI Portfolio Insights</Heading>
-        <Button 
-          size="sm" 
-          colorScheme="primary" 
+        <Heading size="md">
+          <Icon as={FiBarChart2} mr={2} verticalAlign="middle" />
+          AI Portfolio Insights
+        </Heading>
+        <Button
+          size="sm"
+          colorScheme="primary"
           variant="outline"
+          leftIcon={<FiRefreshCw />}
           onClick={fetchAnalysis}
           isLoading={isLoadingAnalysis}
           loadingText="Refreshing"
-          leftIcon={<FiRefreshCw />}
         >
           Refresh Analysis
         </Button>
       </Flex>
-      
-      <Box p={4}>
+
+      <Box p={5}>
         {isLoadingAnalysis && (
-          <Flex justifyContent="center" alignItems="center" minHeight="150px">
-            <Spinner size="md" />
+          <Flex justifyContent="center" alignItems="center" minHeight="200px">
+            <Spinner size="lg" />
             <Text ml={3}>Analyzing your portfolio...</Text>
           </Flex>
         )}
@@ -189,40 +184,40 @@ const AIInsightsPanel = () => {
         )}
 
         {!isLoadingAnalysis && !analysisError && !analysisData?.analysis && (
-          <Text textAlign="center" py={10} color={useColorModeValue('gray.600', 'gray.400')}>
+          <Text textAlign="center" py={10} color="gray.500">
             {analysisData?.message || "Click 'Refresh Analysis' to get AI-powered insights for your portfolio. Ensure your AI Profile is set up for best results."}
           </Text>
         )}
 
         {!isLoadingAnalysis && !analysisError && analysisData?.analysis && (
-          <VStack spacing={4} align="stretch"> {/* Reduced spacing */}
+          <VStack spacing={6} align="stretch">
             {renderAnalysisSection(
               "Diversification Analysis",
               analysisData.analysis.diversification?.remarks,
-              FiPieChart,
-              true
+              FiPieChart, // Example icon
+              true // Remarks are expected to be bullet points
             )}
             <Divider />
             {renderAnalysisSection(
               "Risk Assessment",
               analysisData.analysis.risk?.assessment,
               FiAlertTriangle,
-              true
+              true // Assessment might also be bullet points
             )}
             <Divider />
             {renderAnalysisSection(
               "Investment Recommendations",
-              analysisData.analysis.recommendations?.[0]?.suggestionAndRationale,
+              analysisData.analysis.recommendations?.[0]?.suggestionAndRationale, // Assuming V1 structure
               FiThumbsUp,
-              true
+              true // Recommendations are expected as list
             )}
             <Divider />
-            <Box fontSize="xs" color={useColorModeValue('gray.600', 'gray.400')} mt={2}> {/* Reduced font size and margin */}
+            <Box fontSize="sm" color="gray.500" mt={4}>
               <Flex align="center" mb={1}>
                 <Icon as={FiUser} mr={2} />
                 <Text>
-                  Based on AI Profile (Risk: <Tag size="sm" colorScheme="blue" variant="subtle">{analysisData.profileUsed?.riskTolerance || 'N/A'}</Tag>, 
-                  Style: <Tag size="sm" colorScheme="purple" variant="subtle">{(analysisData.profileUsed?.investmentStyle || []).join(', ') || 'N/A'}</Tag>)
+                  Analysis based on AI Profile (Risk: <Tag size="sm" colorScheme="blue">{analysisData.profileUsed?.riskTolerance || 'N/A'}</Tag>, 
+                  Style: <Tag size="sm" colorScheme="purple">{(analysisData.profileUsed?.investmentStyle || []).join(', ') || 'N/A'}</Tag>)
                 </Text>
               </Flex>
               <Flex align="center">
@@ -237,4 +232,4 @@ const AIInsightsPanel = () => {
   );
 };
 
-export default AIInsightsPanel;
+export default PortfolioAnalysisDisplay;

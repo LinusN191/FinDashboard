@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Spinner, Text, useColorModeValue } from '@chakra-ui/react';
-import { createChart } from 'lightweight-charts';
+import { createChart, LineStyle } from 'lightweight-charts'; // Added LineStyle
 import { useInvestment } from '../../context/InvestmentContext';
 
-const PriceChart = ({ ticker }) => {
+// Modify PriceChart to accept a 'data' prop for pre-fetched historical data
+const PriceChart = ({ ticker, data: preFetchedData, chartType = 'candlestick' }) => { // Added data and chartType props
   // Use state to store and manage chart data locally
   const [chartData, setChartData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -11,13 +12,14 @@ const PriceChart = ({ ticker }) => {
   
   // Safe extraction from context
   const investmentContext = useInvestment() || {};
-  const { fetchAssetData = () => Promise.resolve([]) } = investmentContext;
+  const { fetchAssetData = () => Promise.resolve([]) } = investmentContext; // This will be less used if preFetchedData is available
   
   // Refs for DOM and chart objects
   const chartContainerRef = useRef(null);
   const chartInstanceRef = useRef(null);
-  const candleSeriesRef = useRef(null);
-  const volumeSeriesRef = useRef(null);
+  // Series refs - will hold different types of series based on chartType
+  const mainSeriesRef = useRef(null); 
+  const volumeSeriesRef = useRef(null); // Keep for candlestick, optional for line
   
   // Color settings
   const chartBgColor = useColorModeValue('white', '#1A202C');
@@ -85,48 +87,57 @@ const PriceChart = ({ ticker }) => {
     return mockData;
   };
 
-  // Load data for the ticker
+  // Load data for the ticker OR use pre-fetched data
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       setError(null);
       
-      try {
-        // Default to AAPL if no ticker provided
-        const currentTicker = ticker || 'AAPL';
-        
-        // Always generate mock data first as fallback
-        const mockData = generateMockData(currentTicker);
-        
-        // Try to fetch real data
-        if (typeof fetchAssetData === 'function') {
-          const data = await fetchAssetData(currentTicker);
+      if (preFetchedData && preFetchedData.length > 0) {
+        // If preFetchedData is available, use it directly
+        // For line chart, it's already {time, value}. For candlestick, it needs to be OHLCV.
+        // This component will now primarily expect the correct format based on chartType.
+        setChartData(preFetchedData);
+        setIsLoading(false);
+        return;
+      } else if (chartType === 'candlestick' && ticker) { // Only fetch if candlestick and ticker provided
+        try {
+          const currentTicker = ticker || 'AAPL'; // Default for candlestick if no ticker
+          const mockData = generateMockData(currentTicker); // Fallback
           
-          if (data && Array.isArray(data) && data.length > 0) {
-            setChartData(data);
+          if (typeof fetchAssetData === 'function') {
+            const data = await fetchAssetData(currentTicker); // This fetches OHLCV
+            if (data && Array.isArray(data) && data.length > 0) {
+              setChartData(data);
+            } else {
+              console.log('Using mock OHLCV data for', currentTicker);
+              setChartData(mockData);
+            }
           } else {
-            // Use mock data if no real data available
-            console.log('Using mock data for', currentTicker);
+            console.log('fetchAssetData not available for OHLCV, using mock data');
             setChartData(mockData);
           }
-        } else {
-          // Fallback if fetchAssetData is not available
-          console.log('fetchAssetData not available, using mock data');
-          setChartData(mockData);
+        } catch (err) {
+          console.error('Error loading candlestick chart data:', err);
+          setError('Failed to load chart data');
+          setChartData(generateMockData(ticker || 'AAPL')); // Fallback
         }
-      } catch (err) {
-        console.error('Error loading chart data:', err);
-        setError('Failed to load chart data');
-        
-        // Fallback to mock data on error
-        setChartData(generateMockData(ticker || 'AAPL'));
-      } finally {
-        setIsLoading(false);
+      } else if (chartType === 'line' && !preFetchedData) {
+        // If it's a line chart but no preFetchedData, it implies an issue or data needs to be fetched differently.
+        // For this refactor, we assume line charts WILL get preFetchedData.
+        // If not, show an error or a message.
+        setError(`No data provided for line chart for ${ticker || 'asset'}.`);
+        setChartData([]); // Ensure chartData is empty
+      } else {
+        // No ticker for candlestick or other unsupported scenario for now
+        setError('Chart cannot be displayed. Invalid configuration or missing data.');
+        setChartData([]);
       }
+      setIsLoading(false);
     }
     
     loadData();
-  }, [ticker, fetchAssetData]);
+  }, [ticker, fetchAssetData, preFetchedData, chartType]); // Added preFetchedData and chartType to dependencies
 
   // Initialize chart
   useEffect(() => {
@@ -136,8 +147,10 @@ const PriceChart = ({ ticker }) => {
     if (chartInstanceRef.current) {
       chartInstanceRef.current.remove();
       chartInstanceRef.current = null;
-      candleSeriesRef.current = null;
-      volumeSeriesRef.current = null;
+      mainSeriesRef.current = null; // Generic series ref
+      if (volumeSeriesRef.current) { // Volume series might not always exist
+        volumeSeriesRef.current = null;
+      }
     }
 
     try {
@@ -163,26 +176,34 @@ const PriceChart = ({ ticker }) => {
       // Store chart instance in ref
       chartInstanceRef.current = chart;
       
-      // Create series
-      candleSeriesRef.current = chart.addCandlestickSeries({
-        upColor: upColor,
-        downColor: downColor,
-        borderVisible: false,
-        wickUpColor: upColor,
-        wickDownColor: downColor,
-      });
-      
-      volumeSeriesRef.current = chart.addHistogramSeries({
-        color: '#26a69a',
-        priceFormat: {
-          type: 'volume',
-        },
-        priceScaleId: '',
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0,
-        },
-      });
+      // Create series based on chartType
+      if (chartType === 'candlestick') {
+        mainSeriesRef.current = chart.addCandlestickSeries({
+          upColor: upColor,
+          downColor: downColor,
+          borderVisible: false,
+          wickUpColor: upColor,
+          wickDownColor: downColor,
+        });
+        
+        volumeSeriesRef.current = chart.addHistogramSeries({
+          color: '#26a69a', // Default volume color
+          priceFormat: { type: 'volume' },
+          priceScaleId: '', // Attach to main price scale if needed, or dedicated if separate Y-axis for volume
+          scaleMargins: { top: 0.8, bottom: 0 }, // Adjust as needed
+        });
+
+      } else if (chartType === 'line') {
+        mainSeriesRef.current = chart.addLineSeries({
+          color: upColor, // Use upColor for line, or make it a prop
+          lineWidth: 2,
+        });
+        // Volume series is optional for line charts, can be added if data includes volume
+        // For now, assuming line chart data is simple {time, value}
+        if (volumeSeriesRef.current) { // If a volume series was somehow created, ensure it's null
+            volumeSeriesRef.current = null; 
+        }
+      }
       
       // Handle resize
       const handleResize = () => {
@@ -225,43 +246,57 @@ const PriceChart = ({ ticker }) => {
   // Update chart with data
   useEffect(() => {
     if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
+      // If chartData is empty (e.g. after an error or no data for line chart),
+      // ensure we clear any existing series data to show a blank chart.
+      if (mainSeriesRef.current) mainSeriesRef.current.setData([]);
+      if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]);
       return;
     }
     
-    if (!chartInstanceRef.current || !candleSeriesRef.current || !volumeSeriesRef.current) {
+    if (!chartInstanceRef.current || !mainSeriesRef.current) {
       return;
     }
     
     try {
-      // Format data for candlestick chart with proper time formatting
-      const ohlcData = chartData.map(item => ({
-        time: formatTimeForChart(item.date),
-        open: parseFloat(item.open) || 0,
-        high: parseFloat(item.high) || 0,
-        low: parseFloat(item.low) || 0,
-        close: parseFloat(item.close) || 0
-      })).filter(item => item.time !== null);
+      if (chartType === 'candlestick') {
+        const ohlcData = chartData.map(item => ({
+          time: formatTimeForChart(item.date), // Assuming item.date for candlestick
+          open: parseFloat(item.open) || 0,
+          high: parseFloat(item.high) || 0,
+          low: parseFloat(item.low) || 0,
+          close: parseFloat(item.close) || 0
+        })).filter(item => item.time !== null);
+        mainSeriesRef.current.setData(ohlcData);
+
+        if (volumeSeriesRef.current) { // Check if volume series exists
+            const volumeData = chartData.map(item => ({
+            time: formatTimeForChart(item.date),
+            value: parseFloat(item.volume) || 0,
+            color: parseFloat(item.close) >= parseFloat(item.open) 
+                ? 'rgba(38, 166, 154, 0.5)' 
+                : 'rgba(239, 83, 80, 0.5)'
+            })).filter(item => item.time !== null);
+            volumeSeriesRef.current.setData(volumeData);
+        }
+
+      } else if (chartType === 'line') {
+        // Data for line chart is expected to be {time, value}
+        // The 'time' field in preFetchedData from historical-price.js is already a UNIX timestamp (seconds)
+        const lineData = chartData.map(item => ({ 
+          time: item.time, // Assuming item.time is already a UNIX timestamp in seconds
+          value: parseFloat(item.value) || 0 
+        })).filter(item => item.time != null);
+        mainSeriesRef.current.setData(lineData);
+        // No volume data for line chart by default in this refactor
+        if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]); // Clear if it exists
+      }
       
-      // Format data for volume chart with proper time formatting
-      const volumeData = chartData.map(item => ({
-        time: formatTimeForChart(item.date),
-        value: parseFloat(item.volume) || 0,
-        color: parseFloat(item.close) >= parseFloat(item.open) 
-          ? 'rgba(38, 166, 154, 0.5)' 
-          : 'rgba(239, 83, 80, 0.5)'
-      })).filter(item => item.time !== null);
-      
-      // Set data to series
-      candleSeriesRef.current.setData(ohlcData);
-      volumeSeriesRef.current.setData(volumeData);
-      
-      // Fit content
       chartInstanceRef.current.timeScale().fitContent();
     } catch (err) {
       console.error('Error updating chart data:', err);
       setError('Failed to update chart with data');
     }
-  }, [chartData]);
+  }, [chartData, chartType]); // Added chartType to dependencies
 
   // Render loading state
   if (isLoading) {
