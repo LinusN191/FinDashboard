@@ -19,18 +19,16 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// In development mode, use mock Firebase services to avoid API errors
+// In development mode, connect to Firebase emulators if running
 if (process.env.NODE_ENV === 'development') {
-  // Set up special handling for development environment
-  console.log('Firebase initialized in development mode with mock services');
-  
-  // You would normally connect to emulators here if you had them running:
-  // try {
-  //   connectAuthEmulator(auth, 'http://localhost:9099');
-  //   connectFirestoreEmulator(db, 'localhost', 8080);
-  // } catch (e) {
-  //   console.warn('Could not connect to Firebase emulators:', e);
-  // }
+  console.log('Development mode: Attempting to connect to Firebase emulators.');
+  try {
+    connectAuthEmulator(auth, 'http://localhost:9099');
+    connectFirestoreEmulator(db, 'http://localhost:8080'); // Ensure Firestore emulator also uses http
+    console.log('Successfully connected to Firebase Auth and Firestore emulators.');
+  } catch (e) {
+    console.warn('Could not connect to Firebase emulators. Ensure they are running. Error:', e);
+  }
 }
 
 // Export a function to check if we're using real Firebase or mocked services

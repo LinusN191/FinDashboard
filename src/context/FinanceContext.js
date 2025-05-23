@@ -93,7 +93,9 @@ export const FinanceProvider = ({ children }) => {
     setUseMockData(isMockMode);
     
     if (isMockMode) {
-      console.log('Using mock financial data in development mode');
+      console.log('FinanceContext: Initialized in explicit mock data mode. API calls will be simulated.');
+    } else {
+      console.log('FinanceContext: Initialized to use live API data.');
     }
   }, [usingMockAuth]);
 
@@ -116,9 +118,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchDashboardSummary: Using mock data due to explicit mock mode.');
         setDashboardSummary(mockData.dashboard_summary);
         return mockData.dashboard_summary;
       }
@@ -128,11 +131,14 @@ export const FinanceProvider = ({ children }) => {
       setDashboardSummary(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch dashboard summary');
-      console.error(err);
-      if (useMockData) {
+      console.error('Error fetching dashboard summary:', err);
+      if (useMockData) { // This block should ideally not be hit if API calls are skipped in mock mode
+        setError('Using mock dashboard summary due to explicit mock mode after a fetch attempt.');
         setDashboardSummary(mockData.dashboard_summary);
         return mockData.dashboard_summary;
+      } else {
+        setError(`Failed to fetch dashboard summary: ${err.message}. Real data could not be retrieved.`);
+        // Do not setDashboardSummary(mockData.dashboard_summary) here
       }
     } finally {
       setLoading(false);
@@ -145,9 +151,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchBudgets: Using mock data due to explicit mock mode.');
         setBudgets(mockData.budgets);
         return mockData.budgets;
       }
@@ -157,11 +164,14 @@ export const FinanceProvider = ({ children }) => {
       setBudgets(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch budgets');
-      console.error(err);
+      console.error('Error fetching budgets:', err);
       if (useMockData) {
+        setError('Using mock budgets due to explicit mock mode after a fetch attempt.');
         setBudgets(mockData.budgets);
         return mockData.budgets;
+      } else {
+        setError(`Failed to fetch budgets: ${err.message}. Real data could not be retrieved.`);
+        // Do not setBudgets(mockData.budgets) here
       }
     } finally {
       setLoading(false);
@@ -174,9 +184,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('createBudget: Simulating budget creation in mock mode.');
         const newBudget = {
           id: `budget-${Date.now()}`,
           ...budgetData,
@@ -192,9 +203,9 @@ export const FinanceProvider = ({ children }) => {
       setBudgets([...budgets, response.data]);
       return response.data;
     } catch (err) {
-      setError('Failed to create budget');
-      console.error(err);
-      throw err;
+      console.error('Error creating budget:', err);
+      setError(`Failed to create budget: ${err.message}`);
+      throw err; // Re-throw for the component to handle
     } finally {
       setLoading(false);
     }
@@ -206,9 +217,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchExpenses: Using mock data due to explicit mock mode.');
         setExpenses(mockData.expenses);
         return mockData.expenses;
       }
@@ -221,11 +233,14 @@ export const FinanceProvider = ({ children }) => {
       setExpenses(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch expenses');
-      console.error(err);
+      console.error('Error fetching expenses:', err);
       if (useMockData) {
+        setError('Using mock expenses due to explicit mock mode after a fetch attempt.');
         setExpenses(mockData.expenses);
         return mockData.expenses;
+      } else {
+        setError(`Failed to fetch expenses: ${err.message}. Real data could not be retrieved.`);
+        // Do not setExpenses(mockData.expenses) here
       }
     } finally {
       setLoading(false);
@@ -238,9 +253,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('createExpense: Simulating expense creation in mock mode.');
         const newExpense = {
           id: `exp-${Date.now()}`,
           date: new Date().toISOString().split('T')[0],
@@ -255,9 +271,9 @@ export const FinanceProvider = ({ children }) => {
       setExpenses([...expenses, response.data]);
       return response.data;
     } catch (err) {
-      setError('Failed to create expense');
-      console.error(err);
-      throw err;
+      console.error('Error creating expense:', err);
+      setError(`Failed to create expense: ${err.message}`);
+      throw err; // Re-throw for the component to handle
     } finally {
       setLoading(false);
     }
@@ -269,9 +285,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchDebts: Using mock data due to explicit mock mode.');
         setDebts(mockData.debts);
         return mockData.debts;
       }
@@ -281,11 +298,14 @@ export const FinanceProvider = ({ children }) => {
       setDebts(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch debts');
-      console.error(err);
+      console.error('Error fetching debts:', err);
       if (useMockData) {
+        setError('Using mock debts due to explicit mock mode after a fetch attempt.');
         setDebts(mockData.debts);
         return mockData.debts;
+      } else {
+        setError(`Failed to fetch debts: ${err.message}. Real data could not be retrieved.`);
+        // Do not setDebts(mockData.debts) here
       }
     } finally {
       setLoading(false);
@@ -298,9 +318,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('createDebt: Simulating debt creation in mock mode.');
         const newDebt = {
           id: `debt-${Date.now()}`,
           ...debtData
@@ -314,9 +335,9 @@ export const FinanceProvider = ({ children }) => {
       setDebts([...debts, response.data]);
       return response.data;
     } catch (err) {
-      setError('Failed to create debt');
-      console.error(err);
-      throw err;
+      console.error('Error creating debt:', err);
+      setError(`Failed to create debt: ${err.message}`);
+      throw err; // Re-throw for the component to handle
     } finally {
       setLoading(false);
     }
@@ -366,9 +387,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchSavingsGoals: Using mock data due to explicit mock mode.');
         setSavingsGoals(mockData.savings_goals);
         return mockData.savings_goals;
       }
@@ -378,11 +400,14 @@ export const FinanceProvider = ({ children }) => {
       setSavingsGoals(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch savings goals');
-      console.error(err);
+      console.error('Error fetching savings goals:', err);
       if (useMockData) {
+        setError('Using mock savings goals due to explicit mock mode after a fetch attempt.');
         setSavingsGoals(mockData.savings_goals);
         return mockData.savings_goals;
+      } else {
+        setError(`Failed to fetch savings goals: ${err.message}. Real data could not be retrieved.`);
+        // Do not setSavingsGoals(mockData.savings_goals) here
       }
     } finally {
       setLoading(false);
@@ -395,9 +420,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('createSavingsGoal: Simulating savings goal creation in mock mode.');
         const newGoal = {
           id: `goal-${Date.now()}`,
           current_amount: 0,
@@ -412,9 +438,9 @@ export const FinanceProvider = ({ children }) => {
       setSavingsGoals([...savingsGoals, response.data]);
       return response.data;
     } catch (err) {
-      setError('Failed to create savings goal');
-      console.error(err);
-      throw err;
+      console.error('Error creating savings goal:', err);
+      setError(`Failed to create savings goal: ${err.message}`);
+      throw err; // Re-throw for the component to handle
     } finally {
       setLoading(false);
     }
@@ -426,9 +452,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('fetchInvestmentPlans: Using mock data due to explicit mock mode.');
         setInvestmentPlans(mockData.investment_plans);
         return mockData.investment_plans;
       }
@@ -438,11 +465,14 @@ export const FinanceProvider = ({ children }) => {
       setInvestmentPlans(response.data);
       return response.data;
     } catch (err) {
-      setError('Failed to fetch investment plans');
-      console.error(err);
+      console.error('Error fetching investment plans:', err);
       if (useMockData) {
+        setError('Using mock investment plans due to explicit mock mode after a fetch attempt.');
         setInvestmentPlans(mockData.investment_plans);
         return mockData.investment_plans;
+      } else {
+        setError(`Failed to fetch investment plans: ${err.message}. Real data could not be retrieved.`);
+        // Do not setInvestmentPlans(mockData.investment_plans) here
       }
     } finally {
       setLoading(false);
@@ -455,9 +485,10 @@ export const FinanceProvider = ({ children }) => {
     
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       
-      // Use mock data in development
       if (useMockData) {
+        console.log('createInvestmentPlan: Simulating investment plan creation in mock mode.');
         const newPlan = {
           id: `invest-${Date.now()}`,
           ...planData
@@ -471,9 +502,9 @@ export const FinanceProvider = ({ children }) => {
       setInvestmentPlans([...investmentPlans, response.data]);
       return response.data;
     } catch (err) {
-      setError('Failed to create investment plan');
-      console.error(err);
-      throw err;
+      console.error('Error creating investment plan:', err);
+      setError(`Failed to create investment plan: ${err.message}`);
+      throw err; // Re-throw for the component to handle
     } finally {
       setLoading(false);
     }
@@ -487,8 +518,8 @@ export const FinanceProvider = ({ children }) => {
     setError('');
     
     try {
-      // Use mock data in development
       if (useMockData) {
+        console.log('loadAllFinanceData: Using mock data for initial load due to explicit mock mode.');
         setDashboardSummary(mockData.dashboard_summary);
         setBudgets(mockData.budgets);
         setExpenses(mockData.expenses);
@@ -496,6 +527,10 @@ export const FinanceProvider = ({ children }) => {
         setSavingsGoals(mockData.savings_goals);
         setInvestmentPlans(mockData.investment_plans);
       } else {
+        console.log('loadAllFinanceData: Attempting to fetch all live financial data.');
+        // Promise.all will stop on the first rejection. 
+        // Individual fetch functions already handle their own errors and set specific error messages.
+        // If any of these fail, the error state will be set by the specific fetch function.
         await Promise.all([
           fetchDashboardSummary(),
           fetchBudgets(),
@@ -504,19 +539,30 @@ export const FinanceProvider = ({ children }) => {
           fetchSavingsGoals(),
           fetchInvestmentPlans()
         ]);
+        console.log('loadAllFinanceData: Successfully fetched all live financial data.');
       }
     } catch (err) {
-      setError('Failed to load financial data');
-      console.error(err);
-      
-      // Fallback to mock data
+      // This catch block will now primarily catch errors from Promise.all if not caught by individual fetches,
+      // or if a fetch function re-throws an error that isn't caught by its own try/catch.
+      // Individual fetch functions are designed to set their own error messages and not fall back to mock data if useMockData is false.
+      console.error('loadAllFinanceData: Error during the process of loading all financial data.', err);
       if (useMockData) {
+        // This case should ideally not be reached if individual fetches handle mock data correctly.
+        // It's a fallback if something unexpected happens.
+        setError('Using mock data for initial load due to explicit mock mode after a failure in Promise.all.');
         setDashboardSummary(mockData.dashboard_summary);
         setBudgets(mockData.budgets);
         setExpenses(mockData.expenses);
         setDebts(mockData.debts);
         setSavingsGoals(mockData.savings_goals);
         setInvestmentPlans(mockData.investment_plans);
+      } else {
+         // If useMockData is false, and an error occurs in Promise.all, 
+         // it means one of the fetches failed and should have set its own error.
+         // Set a general error message here if not already set by a specific fetch.
+        if (!error) { // Check if an error is already set by a specific fetch
+          setError(`Failed to load some essential financial data: ${err.message}. Some parts of your dashboard may be incomplete.`);
+        }
       }
     } finally {
       setLoading(false);

@@ -22,7 +22,11 @@ import {
   StatNumber,
   StatHelpText,
   useDisclosure,
-  useColorModeValue
+  useColorModeValue,
+  useToast, // Added
+  Spinner,  // Added
+  Alert,    // Added
+  AlertIcon // Added
 } from '@chakra-ui/react';
 import { FiPlus } from 'react-icons/fi';
 import { useFinance } from '../../context/FinanceContext';
@@ -90,8 +94,10 @@ const BudgetCard = ({ category, amount, spent, period }) => {
 };
 
 const BudgetManager = () => {
-  const { budgets, dashboardSummary, createBudget, loading } = useFinance();
+  const { dashboardSummary, createBudget, loading, error } = useFinance(); // Removed 'budgets', added 'error'
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast(); // Added
+  const [isSubmitting, setIsSubmitting] = useState(false); // Added for form submission
   
   // Form state
   const [formData, setFormData] = useState({
@@ -112,8 +118,16 @@ const BudgetManager = () => {
   
   // Handle form submission
   const handleSubmit = async () => {
+    setIsSubmitting(true); // Added
     try {
       await createBudget(formData);
+      toast({ // Added
+        title: 'Budget Created',
+        description: 'Your new budget category has been added.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
       onClose();
       // Reset form
       setFormData({
@@ -122,8 +136,17 @@ const BudgetManager = () => {
         period: 'monthly',
         description: ''
       });
-    } catch (error) {
-      console.error('Error creating budget:', error);
+    } catch (err) { // Changed error to err
+      toast({ // Added
+        title: 'Error Creating Budget',
+        description: err.message || 'Could not save the budget. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      console.error('Error creating budget:', err); // Changed error to err
+    } finally {
+      setIsSubmitting(false); // Added
     }
   };
   
@@ -143,27 +166,33 @@ const BudgetManager = () => {
         </Button>
       </Flex>
       
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} mt={4}>
-        {budgetVsSpending.map((item, index) => (
-          <BudgetCard 
-            key={index}
-            category={item.category}
-            amount={item.budget}
-            spent={item.spent}
-            period="monthly"
-          />
-        ))}
-        
-        {/* Show placeholder if no budget data */}
-        {budgetVsSpending.length === 0 && !loading && (
-          <Box 
-            p={4} 
-            borderWidth="1px" 
-            borderRadius="lg" 
-            borderStyle="dashed"
-            textAlign="center"
-          >
-            <Text color="gray.500">No budgets added yet</Text>
+      {/* Loading State */}
+      {loading && budgetVsSpending.length === 0 && (
+        <Flex justify="center" align="center" minHeight="200px" mt={4}>
+          <Spinner size="xl" />
+          <Text ml={4}>Loading budgets...</Text>
+        </Flex>
+      )}
+
+      {/* Error State */}
+      {error && budgetVsSpending.length === 0 && (
+        <Alert status="error" borderRadius="md" mt={4} mb={4}>
+          <AlertIcon />
+          There was an error loading your budget data: {error.message || JSON.stringify(error)}
+        </Alert>
+      )}
+
+      {/* No Budgets Placeholder - shown if not loading, no error, and no budgets */}
+      {!loading && !error && budgetVsSpending.length === 0 && (
+        <Box 
+          p={4} 
+          borderWidth="1px" 
+          borderRadius="lg" 
+          borderStyle="dashed"
+          textAlign="center"
+          mt={4} // Add margin if it's the only thing shown
+        >
+          <Text color="gray.500">No budgets added yet</Text>
             <Button 
               size="sm" 
               colorScheme="primary" 
@@ -247,7 +276,7 @@ const BudgetManager = () => {
             <Button 
               colorScheme="primary" 
               onClick={handleSubmit}
-              isLoading={loading}
+              isLoading={isSubmitting} // Changed to isSubmitting
               isDisabled={!formData.category || !formData.amount}
             >
               Save

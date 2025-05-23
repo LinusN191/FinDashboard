@@ -20,6 +20,7 @@ import {
   TabPanel,
   useColorModeValue,
   Icon,
+  Link as ChakraLink, // For NextLink integration
   Modal,
   ModalOverlay,
   ModalContent,
@@ -36,10 +37,12 @@ import DashboardLayout from '../../components/Layout/DashboardLayout';
 import AIInsightsPanel from '../../components/AIInsightsPanel';
 import PriceChart from '../../components/Investment/PriceChart';
 import AssetSelector from '../../components/Investment/AssetSelector';
-import BudgetManager from '../../components/Finance/BudgetManager';
-import ExpenseTracker from '../../components/Finance/ExpenseTracker';
+// BudgetManager and ExpenseTracker are no longer directly used on this page
+// import BudgetManager from '../../components/Finance/BudgetManager';
+// import ExpenseTracker from '../../components/Finance/ExpenseTracker';
 import { useInvestment } from '../../context/InvestmentContext';
 import { useFinance } from '../../context/FinanceContext';
+import NextLink from 'next/link'; // Import NextLink
 
 // Summary Card component
 const SummaryCard = ({ title, value, change, isIncrease, icon, helperText }) => {
@@ -227,7 +230,7 @@ const Dashboard = () => {
             <Tabs colorScheme="primary" variant="enclosed" isLazy mb={6}>
               <TabList>
                 <Tab>Investment Overview</Tab>
-                <Tab>Budget & Expenses</Tab>
+                {/* <Tab>Budget & Expenses</Tab> // Removed */}
               </TabList>
               
               <TabPanels>
@@ -310,81 +313,51 @@ const Dashboard = () => {
                   </Box>
                 </TabPanel>
                 
-                {/* Budget & Expenses Tab */}
-                <TabPanel p={0} pt={4}>
-                  <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4} mb={4}>
-                    <Box
-                      p={4}
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      borderColor={borderColor}
-                      bg={cardBg}
-                      height="100%"
-                    >
-                      <Heading size="sm" mb={3}>Budget Overview</Heading>
-                      <Box maxHeight="300px" overflowY="auto">
-                        <BudgetManager compact={true} />
-                      </Box>
-                    </Box>
-                    
-                    <Box
-                      p={4}
-                      borderWidth="1px"
-                      borderRadius="lg"
-                      borderColor={borderColor}
-                      bg={cardBg}
-                      height="100%"
-                    >
-                      <Heading size="sm" mb={3}>Recent Expenses</Heading>
-                      <Box maxHeight="300px" overflowY="auto">
-                        <ExpenseTracker compact={true} limit={5} />
-                      </Box>
-                    </Box>
-                  </SimpleGrid>
-                  
-                  <Box
-                    p={4}
-                    borderWidth="1px"
-                    borderRadius="lg"
-                    borderColor={borderColor}
-                    bg={cardBg}
-                    mb={4}
-                  >
-                    <Heading size="sm" mb={3}>Income vs. Expenses</Heading>
-                    <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4}>
-                      <Stat>
-                        <StatLabel>Monthly Income</StatLabel>
-                        <StatNumber fontSize="lg">{formatCurrency(monthlyIncome)}</StatNumber>
-                        <StatHelpText>
-                          <StatArrow type="increase" />
-                          2.3%
-                        </StatHelpText>
-                      </Stat>
-                      
-                      <Stat>
-                        <StatLabel>Monthly Expenses</StatLabel>
-                        <StatNumber fontSize="lg">{formatCurrency(monthlyExpenses)}</StatNumber>
-                        <StatHelpText>
-                          <StatArrow type="decrease" />
-                          1.5%
-                        </StatHelpText>
-                      </Stat>
-                      
-                      <Stat>
-                        <StatLabel>Savings Rate</StatLabel>
-                        <StatNumber fontSize="lg">
-                          {formatPercentage((monthlySavings / monthlyIncome) * 100)}
-                        </StatNumber>
-                        <StatHelpText>
-                          <StatArrow type="increase" />
-                          3.2%
-                        </StatHelpText>
-                      </Stat>
-                    </SimpleGrid>
-                  </Box>
-                </TabPanel>
+                {/* Budget & Expenses Tab Panel Removed */}
               </TabPanels>
             </Tabs>
+
+            {/* Call to Action Card for Financial Management */}
+            <Box 
+              mt={6} // Add margin top for spacing
+              p={5}
+              borderWidth="1px"
+              borderRadius="lg"
+              borderColor={borderColor}
+              bg={cardBg}
+              boxShadow="sm"
+              transition="transform 0.2s, box-shadow 0.2s"
+              _hover={{ transform: 'translateY(-2px)', boxShadow: 'md' }}
+            >
+              <Heading size="md" mb={3}>Your Financial Hub</Heading>
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={4}>
+                <Stat>
+                  <StatLabel>Monthly Savings</StatLabel>
+                  <StatNumber>{formatCurrency(monthlySavings)}</StatNumber>
+                  {/* You can add StatHelpText here if needed */}
+                </Stat>
+                <Stat>
+                  <StatLabel>Budget Utilization</StatLabel>
+                  <StatNumber>
+                    {dashboardSummary?.budget_utilization_percentage 
+                      ? `${dashboardSummary.budget_utilization_percentage}%` 
+                      : financeLoading ? 'Loading...' : 'N/A'}
+                  </StatNumber>
+                  {/* You can add StatHelpText here if needed */}
+                </Stat>
+              </SimpleGrid>
+              <Button 
+                as={NextLink} 
+                href="/dashboard/finance" 
+                colorScheme="primary" 
+                width="full"
+                passHref
+              >
+                <ChakraLink _hover={{ textDecoration: 'none' }}>
+                  Manage Your Budgets & Expenses
+                </ChakraLink>
+              </Button>
+            </Box>
           </GridItem>
           
           {/* Right Column - AI Insights */}
